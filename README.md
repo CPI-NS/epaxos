@@ -4,7 +4,7 @@ EPaxos
 ## Changes
 * Updated include paths to follow proper module structure
 * Added script to build 
-** Run `bash build.sh` to generate binaries in the `/bin` directory
+    * Run `bash build.sh` to generate binaries in the `/bin` directory
 * To run follow the original README in `./src`
 
 
