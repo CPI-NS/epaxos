@@ -1,15 +1,15 @@
 package mencius
 
 import (
-	"dlog"
+	"github.com/efficient/epaxos/src/dlog"
 	"encoding/binary"
-	"fastrpc"
-	"genericsmr"
-	"genericsmrproto"
+	"github.com/efficient/epaxos/src/fastrpc"
+	"github.com/efficient/epaxos/src/genericsmr"
+	"github.com/efficient/epaxos/src/genericsmrproto"
 	"io"
 	"log"
-	"menciusproto"
-	"state"
+	"github.com/efficient/epaxos/src/menciusproto"
+	"github.com/efficient/epaxos/src/state"
 	"time"
 )
 

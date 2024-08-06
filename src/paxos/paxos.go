@@ -1,15 +1,15 @@
 package paxos
 
 import (
-	"dlog"
+	"github.com/efficient/epaxos/src/dlog"
 	"encoding/binary"
-	"fastrpc"
-	"genericsmr"
-	"genericsmrproto"
+	"github.com/efficient/epaxos/src/fastrpc"
+	"github.com/efficient/epaxos/src/genericsmr"
+	"github.com/efficient/epaxos/src/genericsmrproto"
 	"io"
 	"log"
-	"paxosproto"
-	"state"
+	"github.com/efficient/epaxos/src/paxosproto"
+	"github.com/efficient/epaxos/src/state"
 	"time"
 )
 
