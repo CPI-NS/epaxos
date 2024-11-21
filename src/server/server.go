@@ -95,7 +95,10 @@ func registerWithMaster(masterAddr string) (int, []string) {
 				done = true
 				break
 			}
-		}
+		} else {
+      fmt.Println("Error in registering with master: ",err)
+    }
+
 		time.Sleep(1e9)
 	}
 

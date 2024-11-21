@@ -240,6 +240,9 @@ func main() {
 	master.Close()
 }
 
+func batchPut() {
+}
+
 func waitReplies(readers []*bufio.Reader, leader int, n int, done chan bool) {
 	e := false
 
