@@ -253,18 +253,14 @@ func Get(key int64, _ []int32, _ int, _ []int32) int {
 }
 
 func Put(key int64, _ []int32, values []int32, _ int) int {
-  fmt.Println("Put")
   keys := make([]int64, 1)
   keys[0] = key
   batchPut(keys, nil, values, 0, 1)
-  fmt.Println("end of put")
   return EaaS.EAAS_W_EC_SUCCESS
 }
 
 func batchPut(keys []int64, _ []int, values[]int32, _ int, batch_size int) int { 
-  fmt.Println("Batch put")
 	args := genericsmrproto.Propose{id, state.Command{state.PUT, 0, 0}, 0}
-  fmt.Println("Sending proposal ", id)
   args.CommandId = id
   //if put[i] {
     args.Command.Op = state.PUT
@@ -300,7 +296,6 @@ func batchPut(keys []int64, _ []int, values[]int32, _ int, batch_size int) int {
     }
   }
 
-  fmt.Println("End of batch Put")
   return EaaS.EAAS_W_EC_SUCCESS
 }
 
