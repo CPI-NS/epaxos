@@ -13,7 +13,7 @@ import (
 	"net/rpc"
 	"runtime"
 	"github.com/efficient/epaxos/src/state"
-  //"github.com/EaaS"
+  "github.com/EaaS"
 //	"time"
 )
 
@@ -45,25 +45,29 @@ var writers []*bufio.Writer
 /* EAAS moved things end */
 
 func main() {
+
+  EaaS.EaasInit()
+  EaaS.EaasRegister(batchPut, "batch_put")
+  EaaS.EaasRegister(dbInit, "db_init")
+  EaaS.EaasRegister(beginTx, "begin_tx")
+  EaaS.EaasRegister(commitTx, "commit_tx")
+  EaaS.EaasRegister(rollbackTx, "rollback_tx")
+  
   StartEpaxos()
 
-  keys := make([]int64, 2)
-  keys[0] = 0
-  keys[1] = 1
-  values := make([]int32, 2)
-  values[0] = 5
-  values[1] = 6
+  EaaS.EaasStartGRPC()
 
-  fmt.Println("Calling put")
-  batchPut(keys,nil, values, 2, 2)
-  /*TODO:
-    - Match batchPut take in arguments like EAAS
-    - Call here to test
-    - Make batchGet?
-    - Make txn stubs and dbinit stubs
-  */
+ // keys := make([]int64, 2)
+ // keys[0] = 0
+ // keys[1] = 1
+ // values := make([]int32, 2)
+ // values[0] = 5
+ // values[1] = 6
 
-  for true {}
+ // fmt.Println("Calling put")
+ // batchPut(keys,nil, values, 2, 2)
+
+//  for true {}
 }
 
 func StartEpaxos() {
@@ -280,11 +284,23 @@ func batchPut(keys []int64, _ []int, values[]int32, _ int, batch_size int) int {
     }
   }
 
-//  return EaaS.EAAS_W_EC_SUCCESS
-  return 0;
+  return EaaS.EAAS_W_EC_SUCCESS
 }
 
-func batchGet(keys []int64, _[]int, _ int, results []int32) {
+func dbInit() int {
+  return EaaS.EAAS_W_EC_SUCCESS
+}
+
+func beginTx() int {
+  return EaaS.EAAS_W_EC_SUCCESS
+}
+
+func commitTx() int {
+  return EaaS.EAAS_W_EC_SUCCESS
+}
+
+func rollbackTx() int {
+  return EaaS.EAAS_W_EC_SUCCESS
 }
 
 
