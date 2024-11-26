@@ -56,6 +56,7 @@ func main() {
   EaaS.EaasRegister(batchPut, "batch_put")
   EaaS.EaasRegister(Put, "put")
   EaaS.EaasRegister(Get, "get")
+  EaaS.EaasRegister(Set, "set")
   EaaS.EaasRegister(dbInit, "db_init")
   EaaS.EaasRegister(beginTx, "begin_tx")
   EaaS.EaasRegister(commitTx, "commit_tx")
@@ -268,7 +269,14 @@ func Put(key int64, _ []int32, values []int32, _ int) int {
   return EaaS.EAAS_W_EC_SUCCESS
 }
 
-func batchPut(keys []int64, _ []int, values[]int32, _ int, batch_size int) int { 
+func Set(key int64, values []int32) int {
+  keys := make([]int64, 1)
+  keys[0] = key
+  batchPut(keys, nil, values, 0, 1)
+  return EaaS.EAAS_W_EC_SUCCESS
+}
+
+func batchPut(keys []int64, _ []int32, values[]int32, _ int, batch_size int) int { 
 	args := genericsmrproto.Propose{id, state.Command{state.PUT, 0, 0}, 0}
   args.CommandId = id
   //if put[i] {
@@ -279,7 +287,7 @@ func batchPut(keys []int64, _ []int, values[]int32, _ int, batch_size int) int {
 
   for i, _ := range keys {
     args.Command.K = state.Key(keys[i])
-    args.Command.V = state.Value(values[i])
+    args.Command.V = state.Value(values[0])
     args.Timestamp = time.Now().UnixNano()
     /* No fast pass optimization */
     if !*fast {
@@ -288,14 +296,14 @@ func batchPut(keys []int64, _ []int, values[]int32, _ int, batch_size int) int {
         /* Get leader for this batch */
         for j := 0; j < N; j++ {
           sutAddr := os.Getenv("SUT_ADDR")
-          fmt.Println("LEADER ADDR: ", sutAddr)
-          fmt.Println("server ",j," remote addr: ", servers[j].RemoteAddr())
+//          fmt.Println("LEADER ADDR: ", sutAddr)
+//          fmt.Println("server ",j," remote addr: ", servers[j].RemoteAddr())
           if servers[j].RemoteAddr().String() == sutAddr {
             leader = j
           }
         }
       }
-      fmt.Println("Sending batch to leader: ", leader)
+      //fmt.Println("Sending batch to leader: ", leader)
       writers[leader].WriteByte(genericsmrproto.PROPOSE)
       args.Marshal(writers[leader])
     } //else {
@@ -318,13 +326,13 @@ func batchPut(keys []int64, _ []int, values[]int32, _ int, batch_size int) int {
   writers[leader].Flush()
   done := make(chan bool, N)
   if *noLeader {
-    fmt.Println("calling wait replies epaxos")
+ //   fmt.Println("calling wait replies epaxos")
     for i := 0; i < N; i++ {
       go waitReplies(readers, i, batch_size, done)
     }
   } else {
-    fmt.Println("calling wait replies not-epaxos")
-    fmt.Println("Sending for response from leader: ", leader)
+//    fmt.Println("calling wait replies not-epaxos")
+    //fmt.Println("Sending for response from leader: ", leader)
     go waitReplies(readers, leader, batch_size, done)
   }
 
@@ -353,7 +361,7 @@ func batchPut(keys []int64, _ []int, values[]int32, _ int, batch_size int) int {
   }
 }
 
-func dbInit(_ int, _[] int) int {
+func dbInit(_ int) int {
   return EaaS.EAAS_W_EC_SUCCESS
 }
 
@@ -371,24 +379,24 @@ func rollbackTx() int {
 
 
 func waitReplies(readers []*bufio.Reader, leader int, n int, done chan bool) {
-  fmt.Println("In Wait replies")
+  //fmt.Println("In Wait replies")
 	e := false
 
 	reply := new(genericsmrproto.ProposeReplyTS)
-  fmt.Println("right before for loop")
+  //fmt.Println("right before for loop")
   for i := 0; i < n; i++ {
-    fmt.Println("Waiting for replies...")
+   // fmt.Println("Waiting for replies...")
 		if err := reply.Unmarshal(readers[leader]); err != nil {
 			fmt.Println("Error when reading:", err)
 			e = true
 			continue
-		} else {
-      fmt.Println("Got reply")
-    }
-    fmt.Println(reply.OK)
-    fmt.Println(reply.CommandId)
-		fmt.Println(reply.Value)
-		fmt.Println(reply.Timestamp)
+		}// else {
+   //   fmt.Println("Got reply")
+   // }
+  //  fmt.Println(reply.OK)
+  //  fmt.Println(reply.CommandId)
+	//	fmt.Println(reply.Value)
+	//	fmt.Println(reply.Timestamp)
 		if *check {
 			if rsp[reply.CommandId] {
 				fmt.Println("Duplicate reply", reply.CommandId)
