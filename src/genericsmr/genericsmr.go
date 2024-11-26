@@ -225,7 +225,11 @@ func (r *Replica) WaitForClientConnections() {
 		if err != nil {
 			log.Println("Accept error:", err)
 			continue
-		}
+		} else {
+      log.Println("Accepted client connection on ", conn.RemoteAddr().String())
+    }
+
+    log.Println("Calling Client Listener on connection")
 		go r.clientListener(conn)
 
 		r.OnClientConnect <- true
@@ -278,19 +282,24 @@ func (r *Replica) replicaListener(rid int, reader *bufio.Reader) {
 }
 
 func (r *Replica) clientListener(conn net.Conn) {
+  fmt.Println("In Client Listener")
 	reader := bufio.NewReader(conn)
 	writer := bufio.NewWriter(conn)
 	var msgType byte //:= make([]byte, 1)
 	var err error
 	for !r.Shutdown && err == nil {
 
+    fmt.Println("Before Read Byte from reader")
 		if msgType, err = reader.ReadByte(); err != nil {
+      fmt.Println("Breaking because err != nil")
 			break
 		}
 
+    fmt.Println("read message")
 		switch uint8(msgType) {
 
 		case genericsmrproto.PROPOSE:
+      fmt.Println("PROPOSE Command recieved")
 			prop := new(genericsmrproto.Propose)
 			if err = prop.Unmarshal(reader); err != nil {
 				break
@@ -349,6 +358,7 @@ func (r *Replica) ReplyPropose(reply *genericsmrproto.ProposeReply, w *bufio.Wri
 }
 
 func (r *Replica) ReplyProposeTS(reply *genericsmrproto.ProposeReplyTS, w *bufio.Writer) {
+  fmt.Println("ReplyProposeTs")
 	//r.clientMutex.Lock()
 	//defer r.clientMutex.Unlock()
 	//w.WriteByte(genericsmrproto.PROPOSE_REPLY)

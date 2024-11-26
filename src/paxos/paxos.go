@@ -68,6 +68,7 @@ type LeaderBookkeeping struct {
 }
 
 func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply bool, durable bool) *Replica {
+  dlog.Println("new paxos replica")
 	r := &Replica{genericsmr.NewReplica(id, peerAddrList, thrifty, exec, dreply),
 		make(chan fastrpc.Serializable, genericsmr.CHAN_BUFFER_SIZE),
 		make(chan fastrpc.Serializable, genericsmr.CHAN_BUFFER_SIZE),
@@ -170,9 +171,12 @@ func (r *Replica) run() {
 
 	go r.WaitForClientConnections()
 
+  dlog.Println("Before executing commands")
 	if r.Exec {
+    dlog.Println("Executing commands")
 		go r.executeCommands()
 	}
+  dlog.Println("After executing commands")
 
 	if r.Id == 0 {
 		r.IsLeader = true
@@ -377,6 +381,7 @@ func (r *Replica) bcastCommit(instance int32, ballot int32, command []state.Comm
 }
 
 func (r *Replica) handlePropose(propose *genericsmr.Propose) {
+  dlog.Println("Propose in paxos")
 	if !r.IsLeader {
 		preply := &genericsmrproto.ProposeReplyTS{FALSE, -1, state.NIL, 0}
 		r.ReplyProposeTS(preply, propose.Reply)
@@ -404,9 +409,11 @@ func (r *Replica) handlePropose(propose *genericsmr.Propose) {
 	proposals[0] = propose
 
 	for i := 1; i < batchSize; i++ {
+    dlog.Println("REciving propose command paxos")
 		prop := <-r.ProposeChan
 		cmds[i] = prop.Command
 		proposals[i] = prop
+    dlog.Println("Received propose command paxos")
 	}
 
 	if r.defaultBallot == -1 {
@@ -660,14 +667,17 @@ func (r *Replica) handleAcceptReply(areply *paxosproto.AcceptReply) {
 }
 
 func (r *Replica) executeCommands() {
+  dlog.Println("In executing commands")
 	i := int32(0)
 	for !r.Shutdown {
 		executed := false
 
 		for i <= r.committedUpTo {
 			if r.instanceSpace[i].cmds != nil {
+//        dlog.Println("If instance space cmds are not nil")
 				inst := r.instanceSpace[i]
 				for j := 0; j < len(inst.cmds); j++ {
+//          dlog.Println("For commands in instspace call Execute")
 					val := inst.cmds[j].Execute(r.State)
 					if r.Dreply && inst.lb != nil && inst.lb.clientProposals != nil {
 						propreply := &genericsmrproto.ProposeReplyTS{
@@ -675,6 +685,7 @@ func (r *Replica) executeCommands() {
 							inst.lb.clientProposals[j].CommandId,
 							val,
 							inst.lb.clientProposals[j].Timestamp}
+//            dlog.Println("Sending propose reply")
 						r.ReplyProposeTS(propreply, inst.lb.clientProposals[j].Reply)
 					}
 				}

@@ -2,19 +2,20 @@ package main
 
 import (
 	"bufio"
+  "os"
 //	"github.com/efficient/epaxos/src/dlog"
 	"flag"
 	"fmt"
 	"github.com/efficient/epaxos/src/genericsmrproto"
 	"log"
 	"github.com/efficient/epaxos/src/masterproto"
-//	"math/rand"
+	"math/rand"
 	"net"
 	"net/rpc"
 	"runtime"
 	"github.com/efficient/epaxos/src/state"
   "github.com/EaaS"
-//	"time"
+	"time"
 )
 
 var masterAddr *string = flag.String("maddr", "", "Master address. Defaults to localhost")
@@ -40,8 +41,13 @@ var rsp []bool
 
 /* EAAS moved things */
 var id int32 = 0
+var leader int
 
 var writers []*bufio.Writer
+var readers []*bufio.Reader
+var servers []net.Conn
+
+var master *rpc.Client
 /* EAAS moved things end */
 
 func main() {
@@ -84,7 +90,8 @@ func StartEpaxos() {
 		log.Fatalf("Conflicts percentage must be between 0 and 100.\n")
 	}
 
-	master, err := rpc.DialHTTP("tcp", fmt.Sprintf("%s:%d", *masterAddr, *masterPort))
+  var err error
+	master, err = rpc.DialHTTP("tcp", fmt.Sprintf("%s:%d", *masterAddr, *masterPort))
 	if err != nil {
 		log.Fatalf("Error connecting to master\n")
 	}
@@ -96,19 +103,21 @@ func StartEpaxos() {
 	}
 
 	N = len(rlReply.ReplicaList)
-	servers := make([]net.Conn, N)
-	readers := make([]*bufio.Reader, N)
+	//servers := make([]net.Conn, N)
+	servers = make([]net.Conn, N)
+  //readers := make([]*bufio.Reader, N)
+  readers = make([]*bufio.Reader, N)
 	//writers := make([]*bufio.Writer, N)
 	writers = make([]*bufio.Writer, N)
 
 	rarray = make([]int, *reqsNb / *rounds + *eps)
 //	karray := make([]int64, *reqsNb / *rounds + *eps)
 //	put := make([]bool, *reqsNb / *rounds + *eps)
-	perReplicaCount := make([]int, N)
+//	perReplicaCount := make([]int, N)
 //	test := make([]int, *reqsNb / *rounds + *eps)
-//	for i := 0; i < len(rarray); i++ {
-//		r := rand.Intn(N)
-//		rarray[i] = r
+	for i := 0; i < len(rarray); i++ {
+		r := rand.Intn(N)
+		rarray[i] = r
 //		if i < *reqsNb / *rounds {
 //			perReplicaCount[r]++
 //		}
@@ -130,7 +139,7 @@ func StartEpaxos() {
 //			karray[i] = int64(zipf.Uint64())
 //			test[karray[i]]++
 //		}
-//	}
+	}
 //	if *conflicts >= 0 {
 //		fmt.Println("Uniform distribution")
 //	} else {
@@ -149,7 +158,7 @@ func StartEpaxos() {
 	}
 
 	successful = make([]int, N)
-	leader := 0
+	leader = 0
 
 	if *noLeader == false {
 		reply := new(masterproto.GetLeaderReply)
@@ -161,14 +170,14 @@ func StartEpaxos() {
 	}
 
 	//var id int32 = 0
-  done := make(chan bool, N)
+  //done := make(chan bool, N)
 	//args := genericsmrproto.Propose{id, state.Command{state.PUT, 0, 0}, 0}
 
 //	before_total := time.Now()
 
 //	for j := 0; j < *rounds; j++ {
 //
-		n := *reqsNb / *rounds
+//		n := *reqsNb / *rounds
 //
 //		if *check {
 //			rsp = make([]bool, n)
@@ -177,15 +186,15 @@ func StartEpaxos() {
 //			}
 //		}
 //
-		if *noLeader {
-      fmt.Println("calling wait replies epaxos")
-			for i := 0; i < N; i++ {
-				go waitReplies(readers, i, perReplicaCount[i], done)
-			}
-		} else {
-      fmt.Println("calling wait replies not-epaxos")
-			go waitReplies(readers, leader, n, done)
-		}
+//		if *noLeader {
+//      fmt.Println("calling wait replies epaxos")
+//			for i := 0; i < N; i++ {
+//				go waitReplies(readers, i, perReplicaCount[i], done)
+//			}
+//		} else {
+//      fmt.Println("calling wait replies not-epaxos")
+//			go waitReplies(readers, leader, n, done)
+//		}
 
 //		before := time.Now()
 //
@@ -271,32 +280,77 @@ func batchPut(keys []int64, _ []int, values[]int32, _ int, batch_size int) int {
   for i, _ := range keys {
     args.Command.K = state.Key(keys[i])
     args.Command.V = state.Value(values[i])
-  //args.Timestamp = time.Now().UnixNano()
-  /* No fast pass optimization */
-  //if !*fast {
-  //  if *noLeader {
-  //    leader = rarray[i]
-  //  }
-  //  writers[leader].WriteByte(genericsmrproto.PROPOSE)
-  //  args.Marshal(writers[leader])
-  //} else {
+    args.Timestamp = time.Now().UnixNano()
+    /* No fast pass optimization */
+    if !*fast {
+      if *noLeader {
+        //leader = rarray[i]
+        /* Get leader for this batch */
+        for j := 0; j < N; j++ {
+          sutAddr := os.Getenv("SUT_ADDR")
+          fmt.Println("LEADER ADDR: ", sutAddr)
+          fmt.Println("server ",j," remote addr: ", servers[j].RemoteAddr())
+          if servers[j].RemoteAddr().String() == sutAddr {
+            leader = j
+          }
+        }
+      }
+      fmt.Println("Sending batch to leader: ", leader)
+      writers[leader].WriteByte(genericsmrproto.PROPOSE)
+      args.Marshal(writers[leader])
+    } //else {
     //send to everyone
-    for rep := 0; rep < N; rep++ {
-      writers[rep].WriteByte(genericsmrproto.PROPOSE)
-      args.Marshal(writers[rep])
-      writers[rep].Flush()
-    }
+  //  for rep := 0; rep < N; rep++ {
+  //    writers[rep].WriteByte(genericsmrproto.PROPOSE)
+  //    args.Marshal(writers[rep])
+  //    writers[rep].Flush()
+  //  }
   }
   //}
   //fmt.Println("Sent", id)
-  id++
-  if id%100 == 0 {
+  //id++
+  //if id%100 == 0 {
+  //  for i := 0; i < N; i++ {
+  //    writers[i].Flush()
+  //  }
+  //}
+
+  writers[leader].Flush()
+  done := make(chan bool, N)
+  if *noLeader {
+    fmt.Println("calling wait replies epaxos")
     for i := 0; i < N; i++ {
-      writers[i].Flush()
+      go waitReplies(readers, i, batch_size, done)
     }
+  } else {
+    fmt.Println("calling wait replies not-epaxos")
+    fmt.Println("Sending for response from leader: ", leader)
+    go waitReplies(readers, leader, batch_size, done)
   }
 
-  return EaaS.EAAS_W_EC_SUCCESS
+  err := false
+  if *noLeader {
+    for i := 0; i < N; i++ {
+      e := <-done
+      err = e || err
+    }
+  } else {
+    err = <-done
+  }
+
+  if err {
+    if *noLeader {
+      N = N - 1
+    } else {
+      reply := new(masterproto.GetLeaderReply)
+      master.Call("Master.GetLeader", new(masterproto.GetLeaderArgs), reply)
+      leader = reply.LeaderId
+      log.Printf("New leader is replica %d\n", leader)
+    }
+    return EaaS.EAAS_W_EC_INTERNAL_ERROR
+  } else {
+    return EaaS.EAAS_W_EC_SUCCESS
+  }
 }
 
 func dbInit(_ int, _[] int) int {
@@ -322,14 +376,19 @@ func waitReplies(readers []*bufio.Reader, leader int, n int, done chan bool) {
 
 	reply := new(genericsmrproto.ProposeReplyTS)
   fmt.Println("right before for loop")
-	for true {
+  for i := 0; i < n; i++ {
     fmt.Println("Waiting for replies...")
 		if err := reply.Unmarshal(readers[leader]); err != nil {
 			fmt.Println("Error when reading:", err)
 			e = true
 			continue
-		}
+		} else {
+      fmt.Println("Got reply")
+    }
+    fmt.Println(reply.OK)
+    fmt.Println(reply.CommandId)
 		fmt.Println(reply.Value)
+		fmt.Println(reply.Timestamp)
 		if *check {
 			if rsp[reply.CommandId] {
 				fmt.Println("Duplicate reply", reply.CommandId)
@@ -338,7 +397,6 @@ func waitReplies(readers []*bufio.Reader, leader int, n int, done chan bool) {
 		}
 		if reply.OK != 0 {
 			successful[leader]++
-      break
 		}
 	}
 	done <- e
