@@ -9,13 +9,14 @@ import (
 	"github.com/efficient/epaxos/src/genericsmrproto"
 	"log"
 	"github.com/efficient/epaxos/src/masterproto"
-	"math/rand"
+//	"math/rand/v2"
 	"net"
 	"net/rpc"
 	"runtime"
 	"github.com/efficient/epaxos/src/state"
   "github.com/EaaS"
 	"time"
+  "strconv"
 )
 
 var masterAddr *string = flag.String("maddr", "", "Master address. Defaults to localhost")
@@ -111,14 +112,14 @@ func StartEpaxos() {
 	//writers := make([]*bufio.Writer, N)
 	writers = make([]*bufio.Writer, N)
 
-	rarray = make([]int, *reqsNb / *rounds + *eps)
+	//rarray = make([]int, *reqsNb / *rounds + *eps)
 //	karray := make([]int64, *reqsNb / *rounds + *eps)
 //	put := make([]bool, *reqsNb / *rounds + *eps)
 //	perReplicaCount := make([]int, N)
 //	test := make([]int, *reqsNb / *rounds + *eps)
-	for i := 0; i < len(rarray); i++ {
-		r := rand.Intn(N)
-		rarray[i] = r
+//	for i := 0; i < len(rarray); i++ {
+//		r := rand.Intn(N)
+//		rarray[i] = r
 //		if i < *reqsNb / *rounds {
 //			perReplicaCount[r]++
 //		}
@@ -140,7 +141,7 @@ func StartEpaxos() {
 //			karray[i] = int64(zipf.Uint64())
 //			test[karray[i]]++
 //		}
-	}
+//	}
 //	if *conflicts >= 0 {
 //		fmt.Println("Uniform distribution")
 //	} else {
@@ -160,6 +161,7 @@ func StartEpaxos() {
 
 	successful = make([]int, N)
 	leader = 0
+  //leader = rand.IntN(N)
 
 	if *noLeader == false {
 		reply := new(masterproto.GetLeaderReply)
@@ -292,17 +294,18 @@ func batchPut(keys []int64, _ []int32, values[]int32, _ int, batch_size int) int
     /* No fast pass optimization */
     if !*fast {
       if *noLeader {
-        //leader = rarray[i]
+       // leader = rarray[i]
+
         /* Get leader for this batch */
-        for j := 0; j < N; j++ {
           sutAddr := os.Getenv("SUT_ADDR")
-//          fmt.Println("LEADER ADDR: ", sutAddr)
-//          fmt.Println("server ",j," remote addr: ", servers[j].RemoteAddr())
-          if servers[j].RemoteAddr().String() == sutAddr {
-            leader = j
-          }
-        }
+          leader, _ = strconv.Atoi(sutAddr[len(sutAddr)-1:]) 
+          leader = leader - 2
+       //   fmt.Println("sut_addr: ", leader)
+       //   leader = leader % N
+       //leader = rand.IntN(N)
+
       }
+     
       //fmt.Println("Sending batch to leader: ", leader)
       writers[leader].WriteByte(genericsmrproto.PROPOSE)
       args.Marshal(writers[leader])
@@ -327,9 +330,9 @@ func batchPut(keys []int64, _ []int32, values[]int32, _ int, batch_size int) int
   done := make(chan bool, N)
   if *noLeader {
  //   fmt.Println("calling wait replies epaxos")
-    for i := 0; i < N; i++ {
-      go waitReplies(readers, i, batch_size, done)
-    }
+//    for i := 0; i < N; i++ {
+      go waitReplies(readers, leader, batch_size, done)
+ //   }
   } else {
 //    fmt.Println("calling wait replies not-epaxos")
     //fmt.Println("Sending for response from leader: ", leader)
@@ -338,10 +341,10 @@ func batchPut(keys []int64, _ []int32, values[]int32, _ int, batch_size int) int
 
   err := false
   if *noLeader {
-    for i := 0; i < N; i++ {
+    //for i := 0; i < N; i++ {
       e := <-done
       err = e || err
-    }
+    //}
   } else {
     err = <-done
   }
