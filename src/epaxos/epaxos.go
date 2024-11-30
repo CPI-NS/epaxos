@@ -14,6 +14,7 @@ import (
 	"github.com/efficient/epaxos/src/state"
 	"sync"
 	"time"
+  "fmt"
 )
 
 const MAX_DEPTH_DEP = 10
@@ -37,6 +38,9 @@ const CHECKPOINT_PERIOD = 10000
 
 var cpMarker []state.Command
 var cpcounter = 0
+
+var slowPath = 0
+var fastPath = 0
 
 type Replica struct {
 	*genericsmr.Replica
@@ -1130,11 +1134,15 @@ func (r *Replica) handlePreAcceptOK(pareply *epaxosproto.PreAcceptOK) {
 		r.recordInstanceMetadata(inst)
 		r.sync() //is this necessary here?
 
+    fastPath++
+    fmt.Println("FastPath: ", fastPath) 
 		r.bcastCommit(r.Id, pareply.Instance, inst.Cmds, inst.Seq, inst.Deps)
 	} else if inst.lb.preAcceptOKs >= r.N/2 {
 		if !allCommitted {
 			weird++
 		}
+    slowPath++
+    fmt.Println("SlowPath: ", slowPath)
 		slow++
 		inst.Status = epaxosproto.ACCEPTED
 		r.bcastAccept(r.Id, pareply.Instance, inst.ballot, int32(len(inst.Cmds)), inst.Seq, inst.Deps)
