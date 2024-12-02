@@ -14,7 +14,7 @@ import (
 	"github.com/efficient/epaxos/src/state"
 	"sync"
 	"time"
-  "fmt"
+//  "fmt"
 )
 
 const MAX_DEPTH_DEP = 10
@@ -1135,14 +1135,14 @@ func (r *Replica) handlePreAcceptOK(pareply *epaxosproto.PreAcceptOK) {
 		r.sync() //is this necessary here?
 
     fastPath++
-    fmt.Println("FastPath: ", fastPath) 
+    //fmt.Println("FastPath: ", fastPath) 
 		r.bcastCommit(r.Id, pareply.Instance, inst.Cmds, inst.Seq, inst.Deps)
 	} else if inst.lb.preAcceptOKs >= r.N/2 {
 		if !allCommitted {
 			weird++
 		}
     slowPath++
-    fmt.Println("SlowPath: ", slowPath)
+    //fmt.Println("SlowPath: ", slowPath)
 		slow++
 		inst.Status = epaxosproto.ACCEPTED
 		r.bcastAccept(r.Id, pareply.Instance, inst.ballot, int32(len(inst.Cmds)), inst.Seq, inst.Deps)

@@ -297,6 +297,10 @@ func batchPut(keys []int64, _ []int32, values[]int32, _ int, batch_size int) int
        // leader = rarray[i]
 
         /* Get leader for this batch */
+        /* 
+           so the controlle thinks there is 6 servers becuase
+           of the master but there is only 5
+         */
           sutAddr := os.Getenv("SUT_ADDR")
           leader, _ = strconv.Atoi(sutAddr[len(sutAddr)-1:]) 
           leader = leader - 2

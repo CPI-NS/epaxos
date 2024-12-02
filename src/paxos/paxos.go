@@ -11,6 +11,7 @@ import (
 	"github.com/efficient/epaxos/src/paxosproto"
 	"github.com/efficient/epaxos/src/state"
 	"time"
+  "fmt"
 )
 
 const CHAN_BUFFER_SIZE = 200000
@@ -261,6 +262,7 @@ func (r *Replica) updateCommittedUpTo() {
 }
 
 func (r *Replica) bcastPrepare(instance int32, ballot int32, toInfinity bool) {
+  fmt.Println("NOT MULTI PAXOS PREPARE LOG")
 	defer func() {
 		if err := recover(); err != nil {
 			log.Println("Prepare bcast failed:", err)
@@ -294,6 +296,7 @@ func (r *Replica) bcastPrepare(instance int32, ballot int32, toInfinity bool) {
 var pa paxosproto.Accept
 
 func (r *Replica) bcastAccept(instance int32, ballot int32, command []state.Command) {
+  fmt.Println("MULTIPAXOS ACCEPT LOG")
 	defer func() {
 		if err := recover(); err != nil {
 			log.Println("Accept bcast failed:", err)
