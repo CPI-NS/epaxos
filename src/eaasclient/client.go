@@ -33,6 +33,10 @@ var conflicts *int = flag.Int("c", -1, "Percentage of conflicts. Defaults to 0%"
 var s = flag.Float64("s", 2, "Zipfian s parameter")
 var v = flag.Float64("v", 1, "Zipfian v parameter")
 
+/* EAAS */
+var stackedMultiPaxos *bool = flag.Bool("smp", false, "Stacked Multi Paxos, Expects an environment variable saying which leader. Defaults to false.")
+/* END EAAS */
+
 var N int
 
 var successful []int
@@ -308,6 +312,10 @@ func batchPut(keys []int64, _ []int32, values[]int32, _ int, batch_size int) int
        //   leader = leader % N
        //leader = rand.IntN(N)
 
+      } else if *stackedMultiPaxos {
+        leaderEnvVar := os.Getenv("LEADER")
+        //fmt.Println("Leader Env Var: ", leaderEnvVar)
+        leader , _ = strconv.Atoi(leaderEnvVar)
       }
      
       //fmt.Println("Sending batch to leader: ", leader)

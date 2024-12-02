@@ -95,7 +95,7 @@ func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply b
 		make(chan *DelayedSkip, genericsmr.CHAN_BUFFER_SIZE),
 		0, 0, 0, 0, 0, 0,
 		make(chan bool, 10),
-		make([]*Instance, 10*1024*1024),
+		make([]*Instance, 100*1024*1024),
 		int32(id),
 		int32(-1),
 		int32(0),
