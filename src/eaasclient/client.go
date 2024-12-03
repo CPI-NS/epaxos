@@ -321,13 +321,13 @@ func batchPut(keys []int64, _ []int32, values[]int32, _ int, batch_size int) int
       //fmt.Println("Sending batch to leader: ", leader)
       writers[leader].WriteByte(genericsmrproto.PROPOSE)
       args.Marshal(writers[leader])
-    } //else {
+    } else {
     //send to everyone
-  //  for rep := 0; rep < N; rep++ {
-  //    writers[rep].WriteByte(genericsmrproto.PROPOSE)
-  //    args.Marshal(writers[rep])
-  //    writers[rep].Flush()
-  //  }
+    for rep := 0; rep < N; rep++ {
+      writers[rep].WriteByte(genericsmrproto.PROPOSE)
+      args.Marshal(writers[rep])
+      writers[rep].Flush()
+    }
   }
   //}
   //fmt.Println("Sent", id)
