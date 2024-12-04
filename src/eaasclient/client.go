@@ -276,9 +276,9 @@ func Put(key int64, _ []int32, values []int32, _ int) int {
 }
 
 func Set(key int64, values []int32) int {
-  keys := make([]int64, 1)
-  keys[0] = key
-  batchPut(keys, nil, values, 0, 1)
+//  keys := make([]int64, 1)
+//  keys[0] = key
+//  batchPut(keys, nil, values, 0, 1)
   return EaaS.EAAS_W_EC_SUCCESS
 }
 
@@ -322,11 +322,12 @@ func batchPut(keys []int64, _ []int32, values[]int32, _ int, batch_size int) int
       writers[leader].WriteByte(genericsmrproto.PROPOSE)
       args.Marshal(writers[leader])
     } else {
-    //send to everyone
-    for rep := 0; rep < N; rep++ {
-      writers[rep].WriteByte(genericsmrproto.PROPOSE)
-      args.Marshal(writers[rep])
-      writers[rep].Flush()
+      //send to everyone
+      for rep := 0; rep < N; rep++ {
+        writers[rep].WriteByte(genericsmrproto.PROPOSE)
+        args.Marshal(writers[rep])
+        writers[rep].Flush()
+      }
     }
   }
   //}
