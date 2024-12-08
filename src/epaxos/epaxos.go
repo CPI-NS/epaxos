@@ -14,7 +14,7 @@ import (
 	"github.com/efficient/epaxos/src/state"
 	"sync"
 	"time"
-//  "fmt"
+  "fmt"
 )
 
 const MAX_DEPTH_DEP = 10
@@ -467,7 +467,7 @@ func (r *Replica) executeCommands() {
 					}
 					break
 				}
-				if ok := r.exec.executeCommand(int32(q), inst); ok {
+        if ok := r.exec.executeCommand(int32(q), inst); ok {
 					executed = true
 					if inst == r.ExecedUpTo[q]+1 {
 						r.ExecedUpTo[q] = inst
@@ -1073,6 +1073,7 @@ func (r *Replica) handlePreAcceptReply(pareply *epaxosproto.PreAcceptReply) {
 		r.recordInstanceMetadata(inst)
 		r.sync() //is this necessary here?
 
+    //fmt.Println("Fastpath")
 		r.bcastCommit(pareply.Replica, pareply.Instance, inst.Cmds, inst.Seq, inst.Deps)
 	} else if inst.lb.preAcceptOKs >= r.N/2 {
 		if !allCommitted {
@@ -1080,6 +1081,7 @@ func (r *Replica) handlePreAcceptReply(pareply *epaxosproto.PreAcceptReply) {
 		}
 		slow++
 		inst.Status = epaxosproto.ACCEPTED
+    //fmt.Println("Slowpath")
 		r.bcastAccept(pareply.Replica, pareply.Instance, inst.ballot, int32(len(inst.Cmds)), inst.Seq, inst.Deps)
 	}
 	//TODO: take the slow path if messages are slow to arrive
