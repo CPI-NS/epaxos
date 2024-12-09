@@ -14,7 +14,7 @@ import (
 	"github.com/efficient/epaxos/src/state"
 	"sync"
 	"time"
-  "fmt"
+//  "fmt"
 )
 
 const MAX_DEPTH_DEP = 10
