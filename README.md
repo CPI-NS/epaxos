@@ -2,8 +2,15 @@ EPaxos
 ======
 
 ## Building and Running
-* To build run ``` ./build.sh```
-* To build with EaaS client (depends on this being run when the repo is a submoudle of EaaS project) ``` ./build.sh --eaas```
+* To build run 
+```bash 
+./build.sh
+```
+
+* To build with EaaS client (depends on this being run when the repo is a submoudle of EaaS project) 
+  ```bash
+ ./build.sh --eaas
+```
 
 * To run follow the original README in `./src`
 
