@@ -1,10 +1,16 @@
 EPaxos
 ======
 
+## Building and Running
+* To build run ``` ./build.sh```
+* To build with EaaS client (depends on this being run when the repo is a submoudle of EaaS project) ``` ./build.sh --eaas```
+
+* To run follow the original README in `./src`
+
 ## Changes
 * Updated include paths to follow proper module structure
 * Added script to build 
-    * Run `bash build.sh` to generate binaries in the `/bin` directory
+    * Run `./build.sh` to generate binaries in the `/bin` directory
 * To run follow the original README in `./src`
 
 

@@ -1,15 +1,26 @@
 #! /bin/bash
 #
 # Script to build the epaxos parts
-#
-# ###################################
+# 
+# Usage: `./build.sh` to build just the core epaxos stuff
+#        `./build.sh --eaas` to build the eaas client
+# 
 
 
+echo "Building Master"
 go build -o bin/master ./src/master
+echo "Building Server"
 go build -o bin/server ./src/server
+echo "Building Client"
 go build -o bin/client ./src/client
-go build -o bin/eaasclient ./src/eaasclient
 
+if [ "$1" == "--eaas" ]; then
+  echo "Building EaaS"
+  go build -o bin/eaasclient ./src/eaasclient
+
+elif [ "$1" != "" ]; then
+  echo "Invalid argument: $1"
+fi
 
 
 ## TO RUN: (from the ./src readme)
