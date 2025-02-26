@@ -8,7 +8,7 @@ EPaxos
 ```
 
 * To build with EaaS client (depends on this being run when the repo is a submoudle of EaaS project) 
-  ```bash
+```bash
  ./build.sh --eaas
 ```
 
