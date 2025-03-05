@@ -1,0 +1,50 @@
+#!/bin/bash
+
+display_help () {
+  printf "%b \n" "\033[1m"NAME"\033[0m"
+  printf "\t%s - Script to simulate network conditions of system on the edge\n" $(basename $0)
+  printf "\n%b \n" "\033[1m"SYNOPSIS"\033[0m"
+  printf "\t%b \n" "\033[1m""$(basename $0) -r""\033[0m"
+  printf "\t%b \n" "\033[1m""$(basename $0) -h""\033[0m"
+  printf "\t%b [%b]\n" "\033[1m""$(basename $0) -d""\033[0m" "\033[4m"ARGUMENT"\033[0m"
+  printf "\n%b \n" "\033[1m"DESCRIPTION"\033[0m"
+  printf "\t This script is used to simulate network conditions of systems on the edge. Such as: \n" 
+  printf "\t\t %b Adding a delay on a specific link between nodes that increases at some rate %b to simulate a node getting further away\n" "\033[1m""-""\033[0m" "\033[1m""r""\033[0m"
+  printf "\t\t %b Decreasing bandwidth to simulate constrained network conditions on the edge\n" "\033[1m""-""\033[0m"
+  printf "\t\t %b Simulating a node leaving and re-joining the cluster at varying speeds\n" "\033[1m""-""\033[0m"
+  printf "\n"
+  printf "\t %b,\tReset the netowrk conditions across all the nodes back to normal \n\n" "\033[1m""-r""\033[0m"
+  printf "\t %b,\tDisplay this help message again \n\n" "\033[1m""-h""\033[0m"
+  printf "\t %b [%b] [%b] [%b],\n\t\tAdd a delay to a node up to a given max delay and with a given rate of increase \n" "\033[1m""-d""\033[0m" "\033[4m"IP"\033[0m" "\033[4m""MAX DELAY""\033[0m" "\033[4m"RATE"\033[0m"
+  printf "\n%b \n" "\033[1m"EXAMPLES"\033[0m"
+}
+
+## In awk FNR is the a variable that represents the number of records/lines to read
+ip=$(ping -c 1 node1 | awk 'FNR == 1 {print $3}' | sed -e 's/^.//' -e 's/.$//')
+## Network interface is
+dev=$(ip route get $ip | awk 'FNR == 1 {print $3}')
+
+
+if [ $1 == '-r' ] ; then
+echo "Resetting Network Changes..."
+
+elif [ $1 == '-d' ] ; then
+
+echo "Adding network delay on $ip"
+## SSH in and add a delay
+#ssh -T -o StrictHostKeyChecking=no node1 << _remote_commands
+#sudo tc qdisc add dev $dev root netem delay 100ms
+#_remote_commands
+
+elif [ $1 == '-h' ] ; then
+display_help
+
+else
+
+echo "Invalid Argument!"
+echo ""
+display_help
+
+fi
+
+
