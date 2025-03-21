@@ -2,8 +2,10 @@
 #
 # Script for simulating dynamic network conditions 
 #
-#
-#
+# TODO:
+#   - Adding delay for multiple nodes at once 
+#   - Limiting bandwidth
+#   - Adding '--arg=' syntax to arguments
 #
 ######################
 
@@ -11,7 +13,7 @@ display_help () {
   printf "%b \n" "\033[1m"NAME"\033[0m"
   printf "\t%s - Script to simulate network conditions of system on the edge\n" $(basename $0)
   printf "\n%b \n" "\033[1m"SYNOPSIS"\033[0m"
-  printf "\t%b \n" "\033[1m""$(basename $0) -r""\033[0m"
+  printf "\t%b [%b]\n" "\033[1m""$(basename $0) -r""\033[0m" "\033[4m"ARGUMENT"\033[0m"
   printf "\t%b \n" "\033[1m""$(basename $0) -h""\033[0m"
   printf "\t%b [%b]\n" "\033[1m""$(basename $0) -d""\033[0m" "\033[4m"ARGUMENTS"\033[0m"
   printf "\n%b \n" "\033[1m"DESCRIPTION"\033[0m"
@@ -23,7 +25,14 @@ display_help () {
   printf "\t %b [%b], \n\t\tReset the network conditions of node %b back to normal \n\n" "\033[1m""-r""\033[0m" "\033[4m"IP"\033[0m" "\033[1m"IP"\033[0m"
   printf "\t %b,\tDisplay this help message again \n\n" "\033[1m""-h""\033[0m"
   printf "\t %b [%b] [%b] [%b],\n\t\tAdd a delay to a node up to a given max delay and with a given rate of increase per second\n" "\033[1m""-d""\033[0m" "\033[4m"IP"\033[0m" "\033[4m""MAX DELAY""\033[0m" "\033[4m"RATE"\033[0m"
+  printf "\t\tInitial delay starts at 0.1ms\n" 
   printf "\n%b \n" "\033[1m"EXAMPLES"\033[0m"
+  printf "\t%b\n" "\033[1m""Adding delay to a node:""\033[0m"
+  printf "\t\t./sim_net_conds -d node1 5.0 0.1\n\n" 
+  printf "\t%b\n" "\033[1m""Removing delay from a node:""\033[0m"
+  printf "\t\t./sim_net_conds -r node1\n\n" 
+  printf "\t%b\n" "\033[1m""Displaying this help message again:""\033[0m"
+  printf "\t\t./sim_net_conds -h\n\n" 
 }
 
 continue_delay () {
@@ -90,11 +99,6 @@ elif [ $1 == '-d' ] ; then
      echo "Current Additional Network Delay is: $delay" 
      ssh -T -o StrictHostKeyChecking=no $ip "sudo tc qdisc change dev $dev root netem delay ${delay}ms"
     done
-
-    ## SSH in and add a delay
-    #ssh -T -o StrictHostKeyChecking=no node1 << _remote_commands
-    #sudo tc qdisc add dev $dev root netem delay 100ms
-    #_remote_commands
   fi
 elif [ $1 == '-h' ] ; then
   display_help
