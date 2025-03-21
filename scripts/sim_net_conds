@@ -30,7 +30,7 @@ continue_delay () {
   if (( $( echo "$max_delay == -1" | bc -l ) )); then
     return 0
   else 
-    return $(echo "$delay > $max_delay" | bc -l )
+    return $(echo "$delay >= $max_delay" | bc -l )
   fi
 }
 
@@ -39,8 +39,19 @@ if (( $# < 1 )); then
   echo "Use '-h' to display help."
 
 elif [ $1 == '-r' ] ; then
-  echo "Resetting Network Changes..."
+  ## In awk FNR is the a variable that represents the number of records/lines to read
+  ip=$(ping -c 1 $2 | awk 'FNR == 1 {print $3}' | sed -e 's/^.//' -e 's/.$//')
+  ## Network interface is
+  dev=$(ip route get $ip | awk 'FNR == 1 {print $3}')
 
+  echo "Resetting Network Changes..."
+  ssh -T -o StrictHostKeyChecking=no $ip "sudo tc qdisc del dev $dev root" 2>&1
+
+##
+#
+# Note that Delay is ontop of whatever network delay is already there
+#
+##
 elif [ $1 == '-d' ] ; then
   if (( $# < 4 )); then
     echo "Invalid number of arguments! '-d' requires 3 arguments. See '-h' for help."
@@ -60,11 +71,14 @@ elif [ $1 == '-d' ] ; then
     # if MAX_DELAY is < 0 keep going indefinitely
     # else go until delay >= MAX_DELAY
     ##
+    echo "delay is $delay" 
+    ssh -T -o StrictHostKeyChecking=no $ip "sudo tc qdisc add dev $dev root netem delay ${delay}ms"
     while continue_delay
     do
-     echo "delay is $delay" 
      sleep 1
      delay=$( echo "$delay+$rate" | bc -l )
+     echo "delay is $delay" 
+     ssh -T -o StrictHostKeyChecking=no $ip "sudo tc qdisc change dev $dev root netem delay ${delay}ms"
     done
 
     ## SSH in and add a delay
