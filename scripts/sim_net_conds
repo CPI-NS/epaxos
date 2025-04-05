@@ -43,7 +43,7 @@ fi
 
 for i in "$@"; do
     case $i in
-        ## TODO: Not sure if this will actually get a list of nodes
+        ## Get list of nodes, must be in quotes:  "node1 node2 ..."
         -n=*|--nodes=*)
             NODES="${i#*=}"
             shift # Past argument=value
@@ -72,6 +72,7 @@ for i in "$@"; do
     esac
 done
 
+##TODO: Do it with one node have it go away and come back, then deal with multiple
 echo $NODES
 echo $TIMEINTERVAL
 echo $TIMEDELTA
