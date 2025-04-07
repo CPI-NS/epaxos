@@ -49,13 +49,13 @@ for i in "$@"; do
             shift # Past argument=value
             ;;
         ## how many time intervals of 5ms to run
-        -t=*|--time_interval=*)
-            TIMEINTERVAL="${i#*=}"
+        -t=*|--time_intervalS=*)
+            TIMEINTERVALS="${i#*=}"
             shift # Past argument=value
             ;;
         ## Increase in latency per time interval
-        -d=*|--time_delta=*)
-            TIMEDELTA="${i#*=}"
+        -l=*|--latency_delta=*)
+            LATENCYDELTA="${i#*=}"
             shift # Past argument=value
             ;;
         ## How many time intervals until the node starts coming back
@@ -72,29 +72,56 @@ for i in "$@"; do
     esac
 done
 
+
+## 5s
+TIMEINTERVAL=5
 ##TODO: Do it with one node have it go away and come back, then deal with multiple
 echo $NODES
-echo $TIMEINTERVAL
-echo $TIMEDELTA
+echo $TIMEINTERVALS
+echo $LATENCYDELTA
 echo $TIMERETURN
 
-#continue_delay () {
-#  if (( $( echo "$max_delay == -1" | bc -l ) )); then
-#    return 0
-#  else
-#    return $(echo "$delay >= $max_delay" | bc -l )
-#  fi
-#}
-#
-#get_ip_and_device () {
-#  ## In awk FNR is the a variable that represents the number of records/lines to read
-#  ip=$(ping -c 1 $1 | awk 'FNR == 1 {print $3}' | sed -e 's/^.//' -e 's/.$//')
-#  ## Network interface is
-#  dev=$(ip route get $ip | awk 'FNR == 1 {print $3}')
-#}
-#
-#
-#
+continue_delay () {
+ # if (( $( echo "$max_delay == -1" | bc -l ) )); then
+ #   return 0
+    # else
+    return $(echo "$CURRENTINTERVAL >= $TIMEINTERVALS" | bc -l )
+    # fi
+}
+
+get_ip_and_device () {
+    ## In awk FNR is the a variable that represents the number of records/lines to read
+    ip=$(ping -c 1 $1 | awk 'FNR == 1 {print $3}' | sed -e 's/^.//' -e 's/.$//')
+    ## Network interface is
+    dev=$(ip route get $ip | awk 'FNR == 1 {print $3}')
+}
+
+## Starts at 1 for multiplication reasons
+## And because conceptually the first delay is the first interval
+currentinterval=1
+get_ip_and_device $NODES
+## Delay is interval * latencydelta
+delay=$(echo "$currentinterval * $LATENCYDELTA" | bc -l )
+echo $delay
+ssh -T -o StrictHostKeyChecking=no $ip "sudo tc qdisc add dev $dev root netem delay ${delay}ms"
+((currentinterval++))
+while continue_delay
+do
+  sleep 1
+  if [ $currentinterval >= $TIMERETURN ] ; then
+    ## return - ( current - return ) will work 
+    ## `RI - [ (RI / (TI - RI)) * (CI - RI) ]` Should give a progressive decrease in delay between RI and TI and will end with a delay of 0
+    delay=$(echo " " | bc -l )
+  else
+    delay=$(echo "$currentinterval * $LATENCYDELTA" | bc -l )
+  fi
+
+  echo "Current Additional Network Delay is: $delay"
+  ssh -T -o StrictHostKeyChecking=no $ip "sudo tc qdisc change dev $dev root netem delay ${delay}ms"
+  ((currentinterval++))
+done
+
+
 ###
 ## Reset Network changes
 ###
@@ -105,11 +132,13 @@ echo $TIMERETURN
 #    echo "See '-h' for help."
 #    exit
 #  fi
-#  get_ip_and_device $2
-#
-#  echo "Resetting Network Changes..."
-#  ssh -T -o StrictHostKeyChecking=no $ip "sudo tc qdisc del dev $dev root" 2>&1
-#
+
+get_ip_and_device $NODES
+
+echo "Resetting Network Changes..."
+ssh -T -o StrictHostKeyChecking=no $ip "sudo tc qdisc del dev $dev root" 2>&1
+
+
 ###
 ## Add additional delay to node
 ## Note: The delay is added ontop of whatever network delay is already there
