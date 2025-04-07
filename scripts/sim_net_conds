@@ -76,17 +76,13 @@ done
 ## 5s
 TIMEINTERVAL=5
 ##TODO: Do it with one node have it go away and come back, then deal with multiple
-echo $NODES
-echo $TIMEINTERVALS
-echo $LATENCYDELTA
-echo $TIMERETURN
+#echo $NODES
+#echo $TIMEINTERVALS
+#echo $LATENCYDELTA
+#echo $TIMERETURN
 
 continue_delay () {
- # if (( $( echo "$max_delay == -1" | bc -l ) )); then
- #   return 0
-    # else
-    return $(echo "$CURRENTINTERVAL >= $TIMEINTERVALS" | bc -l )
-    # fi
+    return $(echo "$currentinterval >= $TIMEINTERVALS" | bc -l )
 }
 
 get_ip_and_device () {
@@ -108,10 +104,10 @@ ssh -T -o StrictHostKeyChecking=no $ip "sudo tc qdisc add dev $dev root netem de
 while continue_delay
 do
   sleep 1
-  if [ $currentinterval >= $TIMERETURN ] ; then
+  if [ $currentinterval -ge $TIMERETURN ] ; then
     ## Progressively backing off delay
     ## `RI - [ (RI / (TI - RI)) * (CI - RI) ]` Should give a progressive decrease in delay between RI and TI and will end with a delay of 0
-    delay=$(echo "$TIMERETURN - (($TIMERETURN / ($TIMEINTERVALS - $TIMERETURN))* ($currentinterval - $TIMERETURN))" | bc -l )
+    delay=$(echo "$LATENCYDELTA * ($TIMERETURN - (($TIMERETURN / ($TIMEINTERVALS - $TIMERETURN)) * ($currentinterval - $TIMERETURN)))" | bc -l )
   else
     delay=$(echo "$currentinterval * $LATENCYDELTA" | bc -l )
   fi
@@ -122,56 +118,11 @@ do
 done
 
 
-###
-## Reset Network changes
-###
-#if [ $1 == '-r' ] ; then
-#
-#  if (( $# < 2 )); then
-#    echo "Invalid Number of Arguments! The '-r' option requres 1 argument."
-#    echo "See '-h' for help."
-#    exit
-#  fi
 
 get_ip_and_device $NODES
 
 echo "Resetting Network Changes..."
 ssh -T -o StrictHostKeyChecking=no $ip "sudo tc qdisc del dev $dev root" 2>&1
 
-
-###
-## Add additional delay to node
-## Note: The delay is added ontop of whatever network delay is already there
-###
-#elif [ $1 == '-d' ] ; then
-#  if (( $# < 4 )); then
-#    echo "Invalid number of arguments! '-d' requires 3 arguments. See '-h' for help."
-#  else
-#    get_ip_and_device $2
-#    delay=0.1
-#    max_delay=$3
-#    rate=$4
-#
-#    ##
-#    # Initial delay of 0.1
-#    # if MAX_DELAY is < 0 keep going indefinitely
-#    # else go until delay >= MAX_DELAY
-#    ##
-#    echo "Current Additional Network Delay is: $delay"
-#    ssh -T -o StrictHostKeyChecking=no $ip "sudo tc qdisc add dev $dev root netem delay ${delay}ms"
-#    while continue_delay
-#    do
-#     sleep 1
-#     delay=$( echo "$delay+$rate" | bc -l )
-#     echo "Current Additional Network Delay is: $delay"
-#     ssh -T -o StrictHostKeyChecking=no $ip "sudo tc qdisc change dev $dev root netem delay ${delay}ms"
-#    done
-#  fi
-#elif [ $1 == '-h' ] ; then
-#  display_help
-#else
-#  echo "Unknown Argument!"
-#  echo "Use '-h' to display help."
-#fi
 
 
