@@ -109,9 +109,9 @@ while continue_delay
 do
   sleep 1
   if [ $currentinterval >= $TIMERETURN ] ; then
-    ## return - ( current - return ) will work 
+    ## Progressively backing off delay
     ## `RI - [ (RI / (TI - RI)) * (CI - RI) ]` Should give a progressive decrease in delay between RI and TI and will end with a delay of 0
-    delay=$(echo " " | bc -l )
+    delay=$(echo "$TIMERETURN - (($TIMERETURN / ($TIMEINTERVALS - $TIMERETURN))* ($currentinterval - $TIMERETURN))" | bc -l )
   else
     delay=$(echo "$currentinterval * $LATENCYDELTA" | bc -l )
   fi
