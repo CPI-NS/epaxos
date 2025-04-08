@@ -46,6 +46,11 @@ display_help () {
 
 for i in "$@"; do
     case $i in
+        ## Number of nodes to delay
+        -N=*|--num_nodes=*)
+            NUMNODES="${i#*=}"
+            shift
+            ;;
         ## Get list of nodes, must be in quotes:  "node1 node2 ..."
         -n=*|--nodes=*)
             NODES="${i#*=}"
@@ -79,19 +84,21 @@ for i in "$@"; do
     esac
 done
 
-if (( $# < 4 )); then
-  echo "Invalid Number of Arguments."
-  echo "Use '-h' to display help."
-  exit
-fi
+## TODO: some kind of error checking for the args, I think the abovve case consumes the args 
 
 ## 5s
 TIMEINTERVAL=5
-##TODO: Do it with one node have it go away and come back, then deal with multiple
+read -a nodes_arr <<< "$NODES"
+
+## DEBUG
 #echo $NODES
 #echo $TIMEINTERVALS
 #echo $LATENCYDELTA
 #echo $TIMERETURN
+#echo $NUMNODES
+#for i in ${nodes_arr[@]} ; do echo $i; done
+#for i in $(seq 0 $(expr $NUMNODES - 1) ) ; do echo ${nodes_arr[$i]} ; done
+## END DEBUG
 
 continue_delay () {
     return $(echo "$currentinterval >= $TIMEINTERVALS" | bc -l )
@@ -107,11 +114,13 @@ get_ip_and_device () {
 ## Starts at 1 for multiplication reasons
 ## And because conceptually the first delay is the first interval
 currentinterval=1
-get_ip_and_device $NODES
 ## Delay is interval * latencydelta
 delay=$(echo "$currentinterval * $LATENCYDELTA" | bc -l )
-echo $delay
-ssh -T -o StrictHostKeyChecking=no $ip "sudo tc qdisc add dev $dev root netem delay ${delay}ms"
+echo "Current Additional Network Delay is: $delay"
+for i in $(seq 0 $(expr $NUMNODES - 1)) ; do
+  get_ip_and_device ${nodes_arr[$i]}
+  ssh -T -o StrictHostKeyChecking=no $ip "sudo tc qdisc change dev $dev root netem delay ${delay}ms"
+done
 ((currentinterval++))
 while continue_delay
 do
@@ -125,16 +134,21 @@ do
   fi
 
   echo "Current Additional Network Delay is: $delay"
-  ssh -T -o StrictHostKeyChecking=no $ip "sudo tc qdisc change dev $dev root netem delay ${delay}ms"
+  for i in $(seq 0 $(expr $NUMNODES - 1)) ; do
+    get_ip_and_device ${nodes_arr[$i]}
+    ssh -T -o StrictHostKeyChecking=no $ip "sudo tc qdisc change dev $dev root netem delay ${delay}ms"
+  done
   ((currentinterval++))
 done
 
 
 
-get_ip_and_device $NODES
 
 echo "Resetting Network Changes..."
-ssh -T -o StrictHostKeyChecking=no $ip "sudo tc qdisc del dev $dev root" 2>&1
+for i in $(seq 0 $(expr $NUMNODES - 1)) ; do
+ get_ip_and_device ${nodes_arr[$i]}
+ ssh -T -o StrictHostKeyChecking=no $ip "sudo tc qdisc del dev $dev root" 2>&1
+done
 
 
 
