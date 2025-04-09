@@ -1,11 +1,9 @@
 #!/bin/bash
 #
-# Script for simulating dynamic network conditions 
+# Script for simulating dynamic network conditions
 #
 # TODO:
-#   - Adding delay for multiple nodes at once 
 #   - Limiting bandwidth
-#   - Adding '--arg=' syntax to arguments
 #
 ######################
 
@@ -13,98 +11,162 @@ display_help () {
   printf "%b \n" "\033[1m"NAME"\033[0m"
   printf "\t%s - Script to simulate network conditions of system on the edge\n" $(basename $0)
   printf "\n%b \n" "\033[1m"SYNOPSIS"\033[0m"
-  printf "\t%b [%b]\n" "\033[1m""$(basename $0) -r""\033[0m" "\033[4m"ARGUMENT"\033[0m"
+  printf "\t%b %b %b %b %b\n" "\033[1m""$(basename $0) -N=""\033[0m""[\033[4m"ARGUMENT"\033[0m]" \
+                         "\033[1m"" -n=""\"\033[0m""[\033[4m"ARGUMENT"\033[0m]\"" \
+                         "\033[1m"" -t=""\033[0m""[\033[4m"ARGUMENT"\033[0m]" \
+                         "\033[1m"" -l=""\033[0m""[\033[4m"ARGUMENT"\033[0m]" \
+                         "\033[1m"" -r=""\033[0m""[\033[4m"ARGUMENT"\033[0m]" 
   printf "\t%b \n" "\033[1m""$(basename $0) -h""\033[0m"
-  printf "\t%b [%b]\n" "\033[1m""$(basename $0) -d""\033[0m" "\033[4m"ARGUMENTS"\033[0m"
   printf "\n%b \n" "\033[1m"DESCRIPTION"\033[0m"
-  printf "\t This script is used to simulate network conditions of systems on the edge. Such as: \n" 
-  printf "\t\t %b Adding a delay on a specific link between nodes that increases at some rate %b to simulate a node getting further away\n" "\033[1m""-""\033[0m" "\033[1m""r""\033[0m"
+  printf "\t This script is used to simulate network conditions of systems on the edge. Such as: \n"
+  printf "\t\t %b Adding a delay on a specific link between nodes that increases at some rate %b to simulate a node getting further away\n" "\033[1m""-""\033[0m" "\033[1m""l""\033[0m"
   printf "\t\t %b Decreasing bandwidth to simulate constrained network conditions on the edge\n" "\033[1m""-""\033[0m"
   printf "\t\t %b Simulating a node leaving and re-joining the cluster at varying speeds\n" "\033[1m""-""\033[0m"
   printf "\n"
-  printf "\t %b [%b], \n\t\tReset the network conditions of node %b back to normal \n\n" "\033[1m""-r""\033[0m" "\033[4m"IP"\033[0m" "\033[1m"IP"\033[0m"
+  printf "\t %b, %b \n\t\t Number of nodes to add delay to at once.  %b should be some integer less than the amount of space separated IPs in %b \n\n" \
+                                                                                                         "\033[1m""-N=""\033[0m""\033[4m"NUM_NODES"\033[0m" \
+                                                                                                         "\033[1m""--num_nodes=""\033[0m""\033[4m"NUM_NODES"\033[0m"   \
+                                                                                                         "\033[4m"NUM_NODES"\033[0m" \
+                                                                                                         "\033[4m"IPs"\033[0m" 
+
+  printf "\t %b, %b \n\t\t List of node %b to add a delay onto. multiple node %b need to be quoted \n\n" "\033[1m""-n=""\033[0m""\"\033[4m"IPs"\033[0m\"" \
+                                                                                                         "\033[1m""--nodes=""\033[0m""\"\033[4m"IPs"\033[0m\""  \
+                                                                                                         "\033[1m"IPs"\033[0m" \
+                                                                                                         "\033[1m"IPs"\033[0m" 
+
+  printf "\t %b, %b \n\t\t Integer value of how many intervals of 5s that a delay should be added \n\n" "\033[1m""-t=""\033[0m""\033[4m"NUM_INTERVALS"\033[0m" \
+                                                                                                        "\033[1m""--time_intervals=""\033[0m""\033[4m"NUM_INTERVALS"\033[0m"
+
+  printf "\t %b, %b \n\t\t Float value of how much delay should increase per time interval. \n\t\t All added delays are automatically removed after the specifed number of time intervals \n\n" \
+                                                                                                         "\033[1m""-l=""\033[0m""\033[4m"LATENCY_DELTA"\033[0m" \
+                                                                                                         "\033[1m""--latency_delta=""\033[0m""\033[4m"LATENCY_DELTA"\033[0m"
+
+  printf "\t %b, %b \n\t\t Integer value of after %b time intervals the delay should start to decrease. \n\t\t The return will evenly decrease the delay across the remaining time intervals specified in %b \n\n" \
+                                                                                                         "\033[1m""-r=""\033[0m""\033[4m"INTERVAL_RETURN"\033[0m"  \
+                                                                                                         "\033[1m""--time_return=""\033[0m""\033[4m"INTERVAL_RETURN"\033[0m" \
+                                                                                                         "\033[0m""\033[4m"INTERVAL_RETURN"\033[0m" \
+                                                                                                         "\033[0m""\033[1m"-t"\033[0m"
   printf "\t %b,\tDisplay this help message again \n\n" "\033[1m""-h""\033[0m"
-  printf "\t %b [%b] [%b] [%b],\n\t\tAdd a delay to a node up to a given max delay and with a given rate of increase per second\n" "\033[1m""-d""\033[0m" "\033[4m"IP"\033[0m" "\033[4m""MAX DELAY""\033[0m" "\033[4m"RATE"\033[0m"
-  printf "\t\tInitial delay starts at 0.1ms\n" 
   printf "\n%b \n" "\033[1m"EXAMPLES"\033[0m"
   printf "\t%b\n" "\033[1m""Adding delay to a node:""\033[0m"
-  printf "\t\t./sim_net_conds -d node1 5.0 0.1\n\n" 
-  printf "\t%b\n" "\033[1m""Removing delay from a node:""\033[0m"
-  printf "\t\t./sim_net_conds -r node1\n\n" 
+  printf "\t\t./sim_net_conds -N=1 -n=node1 -t=15 -l=0.1 -r=10\n\n"
+  printf "\t\t./sim_net_conds --num_nodes=1 --nodes=node1 --time_intervals=15 --latency_delta=0.1 --time_return=10\n\n"
+  printf "\t\t./sim_net_conds -N=2 -n=\"node1 node2 node3\" -t=15 -l=0.1 -r=10\n\n"
   printf "\t%b\n" "\033[1m""Displaying this help message again:""\033[0m"
-  printf "\t\t./sim_net_conds -h\n\n" 
+  printf "\t\t./sim_net_conds -h\n\n"
 }
 
+
+for i in "$@"; do
+    case $i in
+        ## Number of nodes to delay
+        -N=*|--num_nodes=*)
+            NUMNODES="${i#*=}"
+            shift
+            ;;
+        ## Get list of nodes, must be in quotes:  "node1 node2 ..."
+        -n=*|--nodes=*)
+            NODES="${i#*=}"
+            shift # Past argument=value
+            ;;
+        ## how many time intervals of 5ms to run
+        -t=*|--time_intervalS=*)
+            TIMEINTERVALS="${i#*=}"
+            shift # Past argument=value
+            ;;
+        ## Increase in latency per time interval
+        -l=*|--latency_delta=*)
+            LATENCYDELTA="${i#*=}"
+            shift # Past argument=value
+            ;;
+        ## How many time intervals until the node starts coming back
+        -r=*|--time_return=*)
+            TIMERETURN="${i#*=}"
+            shift # Past argument=value
+            ;;
+        -h*|--help*)
+          display_help
+          exit 1
+          ;;
+        -*|--*)
+            echo "Unknown option $i"
+            exit 1
+            ;;
+        *)
+            ;;
+    esac
+done
+
+if [ "$NUMNODES" == "" ] || [ "$NODES" == "" ] || [ "$TIMEINTERVALS" == "" ] || [ "$LATENCYDELTA" == "" ] || [ "$TIMERETURN" == "" ] ; then
+  echo "Incorrect number of args!"
+  echo "Please provide all required arguments."
+  echo "See -h for usage."
+fi
+
+## 5s
+TIMEINTERVAL=5
+read -a nodes_arr <<< "$NODES"
+
+## DEBUG
+#echo $NODES
+#echo $TIMEINTERVALS
+#echo $LATENCYDELTA
+#echo $TIMERETURN
+#echo $NUMNODES
+#for i in ${nodes_arr[@]} ; do echo $i; done
+#for i in $(seq 0 $(expr $NUMNODES - 1) ) ; do echo ${nodes_arr[$i]} ; done
+## END DEBUG
+
 continue_delay () {
-  if (( $( echo "$max_delay == -1" | bc -l ) )); then
-    return 0
-  else 
-    return $(echo "$delay >= $max_delay" | bc -l )
-  fi
+    return $(echo "$currentinterval >= $TIMEINTERVALS" | bc -l )
 }
 
 get_ip_and_device () {
-  ## In awk FNR is the a variable that represents the number of records/lines to read
-  ip=$(ping -c 1 $1 | awk 'FNR == 1 {print $3}' | sed -e 's/^.//' -e 's/.$//')
-  ## Network interface is
-  dev=$(ip route get $ip | awk 'FNR == 1 {print $3}')
+    ## In awk FNR is the a variable that represents the number of records/lines to read
+    ip=$(ping -c 1 $1 | awk 'FNR == 1 {print $3}' | sed -e 's/^.//' -e 's/.$//')
+    ## Network interface is
+    dev=$(ip route get $ip | awk 'FNR == 1 {print $3}')
 }
 
-if (( $# < 1 )); then
-  echo "Invalid Number of Arguments."
-  echo "Use '-h' to display help."
-  exit
-fi
-
-
-##
-# Reset Network changes
-##
-if [ $1 == '-r' ] ; then
-
-  if (( $# < 2 )); then
-    echo "Invalid Number of Arguments! The '-r' option requres 1 argument."
-    echo "See '-h' for help."
-    exit
-  fi 
-  get_ip_and_device $2
-
-  echo "Resetting Network Changes..."
-  ssh -T -o StrictHostKeyChecking=no $ip "sudo tc qdisc del dev $dev root" 2>&1
-
-##
-# Add additional delay to node
-# Note: The delay is added ontop of whatever network delay is already there
-##
-elif [ $1 == '-d' ] ; then
-  if (( $# < 4 )); then
-    echo "Invalid number of arguments! '-d' requires 3 arguments. See '-h' for help."
+## Starts at 1 for multiplication reasons
+## And because conceptually the first delay is the first interval
+currentinterval=1
+## Delay is interval * latencydelta
+delay=$(echo "$currentinterval * $LATENCYDELTA" | bc -l )
+echo "Current Additional Network Delay is: $delay"
+for i in $(seq 0 $(expr $NUMNODES - 1)) ; do
+  get_ip_and_device ${nodes_arr[$i]}
+  echo $ip
+  echo $dev
+  ssh -T -o StrictHostKeyChecking=no $ip "sudo tc qdisc add dev $dev root netem delay ${delay}ms"
+done
+((currentinterval++))
+while continue_delay
+do
+  sleep $TIMEINTERVAL
+  if [ $currentinterval -ge $TIMERETURN ] ; then
+    ## Progressively backing off delay
+    ## `RI - [ (RI / (TI - RI)) * (CI - RI) ]` Should give a progressive decrease in delay between RI and TI and will end with a delay of 0
+    delay=$(echo "$LATENCYDELTA * ($TIMERETURN - (($TIMERETURN / ($TIMEINTERVALS - $TIMERETURN)) * ($currentinterval - $TIMERETURN)))" | bc -l )
   else
-    get_ip_and_device $2
-    delay=0.1
-    max_delay=$3
-    rate=$4
-
-    ##
-    # Initial delay of 0.1
-    # if MAX_DELAY is < 0 keep going indefinitely
-    # else go until delay >= MAX_DELAY
-    ##
-    echo "Current Additional Network Delay is: $delay" 
-    ssh -T -o StrictHostKeyChecking=no $ip "sudo tc qdisc add dev $dev root netem delay ${delay}ms"
-    while continue_delay
-    do
-     sleep 1
-     delay=$( echo "$delay+$rate" | bc -l )
-     echo "Current Additional Network Delay is: $delay" 
-     ssh -T -o StrictHostKeyChecking=no $ip "sudo tc qdisc change dev $dev root netem delay ${delay}ms"
-    done
+    delay=$(echo "$currentinterval * $LATENCYDELTA" | bc -l )
   fi
-elif [ $1 == '-h' ] ; then
-  display_help
-else
-  echo "Unknown Argument!"
-  echo "Use '-h' to display help."
-fi
+
+  echo "Current Additional Network Delay is: $delay"
+  for i in $(seq 0 $(expr $NUMNODES - 1)) ; do
+    get_ip_and_device ${nodes_arr[$i]}
+    echo $ip
+    echo $dev
+    ssh -T -o StrictHostKeyChecking=no $ip "sudo tc qdisc change dev $dev root netem delay ${delay}ms"
+  done
+  ((currentinterval++))
+done
+
+echo "Resetting Network Changes..."
+for i in $(seq 0 $(expr $NUMNODES - 1)) ; do
+ get_ip_and_device ${nodes_arr[$i]}
+ ssh -T -o StrictHostKeyChecking=no $ip "sudo tc qdisc del dev $dev root" 2>&1
+done
+
 
 
