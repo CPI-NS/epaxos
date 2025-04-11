@@ -2,17 +2,17 @@ package main
 
 import (
 	"bufio"
-	"dlog"
+	"github.com/efficient/epaxos/src/dlog"
 	"flag"
 	"fmt"
-	"genericsmrproto"
+	"github.com/efficient/epaxos/src/genericsmrproto"
 	"log"
-	"masterproto"
+	"github.com/efficient/epaxos/src/masterproto"
 	"math/rand"
 	"net"
 	"net/rpc"
 	"runtime"
-	"state"
+	"github.com/efficient/epaxos/src/state"
 	"time"
 )
 
@@ -120,7 +120,7 @@ func main() {
 
 	var id int32 = 0
 	done := make(chan bool, N)
-	args := genericsmrproto.Propose{id, state.Command{state.PUT, 0, 0}}
+	args := genericsmrproto.Propose{id, state.Command{state.PUT, 0, 0}, 0}
 
 	before_total := time.Now()
 
@@ -152,7 +152,7 @@ func main() {
 
 		for i := 0; i < n+*eps; i++ {
 			dlog.Printf("Sending proposal %d\n", id)
-			args.ClientId = id
+			args.CommandId = id
 			args.Command.K = state.Key(karray[i])
 			args.Command.V = state.Value(time.Now().UnixNano())
 			if !*fast {
@@ -257,12 +257,12 @@ func waitReplies(readers []*bufio.Reader, leader int, n int, done chan bool, rea
 
 		tss[i] = time.Now().UnixNano() - reply.Timestamp
 
-		if *check {
-			if rsp[reply.Instance] {
-				fmt.Println("Duplicate reply", reply.Instance)
-			}
-			rsp[reply.Instance] = true
-		}
+		//if *check {
+		//	if rsp[reply.Instance] {
+		//		fmt.Println("Duplicate reply", reply.Instance)
+		//	}
+		//	rsp[reply.Instance] = true
+		//}
 		if reply.OK != 0 {
 			successful[leader]++
 		}

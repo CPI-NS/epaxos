@@ -1,4 +1,5 @@
-#! /bin/bash
+#
+#/bin/bash
 #
 # Script to build the epaxos parts
 # 
@@ -13,6 +14,8 @@ echo "Building Server"
 go build -o bin/server ./src/server
 echo "Building Client"
 go build -o bin/client ./src/client
+echo "Building Open Loop Client"
+go build -o bin/client-ol ./src/client-ol-lat
 
 if [ "$1" == "--eaas" ]; then
   echo "Building EaaS"
