@@ -133,11 +133,9 @@ get_ip_and_device () {
 currentinterval=1
 ## Delay is interval * latencydelta
 delay=$(echo "$currentinterval * $LATENCYDELTA" | bc -l )
-echo "Current Additional Network Delay is: $delay"
+echo "Current Additional Network Delay is: $delay ms"
 for i in $(seq 0 $(expr $NUMNODES - 1)) ; do
   get_ip_and_device ${nodes_arr[$i]}
-  echo $ip
-  echo $dev
   ssh -T -o StrictHostKeyChecking=no $ip "sudo tc qdisc add dev $dev root netem delay ${delay}ms"
 done
 ((currentinterval++))
@@ -152,11 +150,9 @@ do
     delay=$(echo "$currentinterval * $LATENCYDELTA" | bc -l )
   fi
 
-  echo "Current Additional Network Delay is: $delay"
+  echo "Current Additional Network Delay is: $delay ms"
   for i in $(seq 0 $(expr $NUMNODES - 1)) ; do
     get_ip_and_device ${nodes_arr[$i]}
-    echo $ip
-    echo $dev
     ssh -T -o StrictHostKeyChecking=no $ip "sudo tc qdisc change dev $dev root netem delay ${delay}ms"
   done
   ((currentinterval++))

@@ -80,6 +80,7 @@ func (master *Master) run() {
 	}
   log.Println("Connected to all replicas")
 	master.leader[0] = true
+  log.Printf("Replica 0 is the leader")
 
 	for true {
 		time.Sleep(3000 * 1000 * 1000)
@@ -87,12 +88,13 @@ func (master *Master) run() {
 		for i, node := range master.nodes {
 			err := node.Call("Replica.Ping", new(genericsmrproto.PingArgs), new(genericsmrproto.PingReply))
 			if err != nil {
-				//log.Printf("Replica %d has failed to reply\n", i)
+				log.Printf("Replica %d has failed to reply to ping\n", i)
 				master.alive[i] = false
 				if master.leader[i] {
 					// neet to choose a new leader
 					new_leader = true
 					master.leader[i] = false
+          log.Printf("Need to choose a new leader")
 				}
 			} else {
 				master.alive[i] = true
@@ -101,6 +103,7 @@ func (master *Master) run() {
 		if !new_leader {
 			continue
 		}
+    log.Printf("Choosing new leader")
 		for i, new_master := range master.nodes {
 			if master.alive[i] {
 				err := new_master.Call("Replica.BeTheLeader", new(genericsmrproto.BeTheLeaderArgs), new(genericsmrproto.BeTheLeaderReply))
