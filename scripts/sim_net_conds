@@ -107,6 +107,7 @@ fi
 TIMEINTERVAL=5
 read -a nodes_arr <<< "$NODES"
 
+num_bands=$((NUMNODES + 1))
 ## DEBUG
 #echo $NODES
 #echo $TIMEINTERVALS
@@ -128,16 +129,38 @@ get_ip_and_device () {
     dev=$(ip route get $ip | awk 'FNR == 1 {print $3}')
 }
 
+get_device () {
+  get_ip_and_device $1
+}
+
 ## Starts at 1 for multiplication reasons
 ## And because conceptually the first delay is the first interval
 currentinterval=1
 ## Delay is interval * latencydelta
 delay=$(echo "$currentinterval * $LATENCYDELTA" | bc -l )
 echo "Current Additional Network Delay is: $delay ms"
+
+get_device ${nodes_arr[0]}
+sudo tc qdisc add dev $dev root handle 1: prio bands $num_bands
+
+## ADD FILTERS TO STEER EACH NODES TRAFFIC INTO ITS OWN BAND
+prio=1
+for i in $(seq 0 $(expr $NUMNODES - 1)) ; do
+  ## NOTE: this assumes that the device is the same across all nodes, this at least seems to be true on cloudlab
+  get_ip_and_device ${nodes_arr[$i]}
+  band=$((prio + 1))
+  sudo tc filter add dev $dev protocol ip parent 1:0 prio $prio u32 match ip dst $ip/32 flowid 1:$band
+  ((prio++))
+done
+
+## SET INITIAL DELAY
 for i in $(seq 0 $(expr $NUMNODES - 1)) ; do
   get_ip_and_device ${nodes_arr[$i]}
-  ssh -T -o StrictHostKeyChecking=no $ip "sudo tc qdisc add dev $dev root netem delay ${delay}ms"
+  band=$((i + 2)) # bands 2...num_bands
+  handle=$((30 + band)) # unique handle (e.g. 32, 33, ...)
+  sudo tc qdisc add dev $dev parent 1:$band handle ${handle}: netem delay ${delay}ms
 done
+
 ((currentinterval++))
 while continue_delay
 do
@@ -153,16 +176,15 @@ do
   echo "Current Additional Network Delay is: $delay ms"
   for i in $(seq 0 $(expr $NUMNODES - 1)) ; do
     get_ip_and_device ${nodes_arr[$i]}
-    ssh -T -o StrictHostKeyChecking=no $ip "sudo tc qdisc change dev $dev root netem delay ${delay}ms"
+    band=$((i + 2)) # bands 2...num_bands
+    handle=$((30 + band)) # unique handle (e.g. 32, 33, ...)
+    sudo tc qdisc change dev $dev parent 1:$band handle ${handle}: netem delay ${delay}ms
   done
   ((currentinterval++))
 done
 
 echo "Resetting Network Changes..."
-for i in $(seq 0 $(expr $NUMNODES - 1)) ; do
- get_ip_and_device ${nodes_arr[$i]}
- ssh -T -o StrictHostKeyChecking=no $ip "sudo tc qdisc del dev $dev root" 2>&1
-done
+sudo tc qdisc del dev $dev root
 
 
 
