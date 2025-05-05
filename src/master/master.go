@@ -87,6 +87,15 @@ func (master *Master) run() {
 		new_leader := false
 		for i, node := range master.nodes {
 			err := node.Call("Replica.Ping", new(genericsmrproto.PingArgs), new(genericsmrproto.PingReply))
+      // TODO: If error != nil || Timer has timed out
+      timeoutTimer = time.NewTimer(2 * time.Second)
+      go fun() {
+        <-timer2.C
+      }
+      //
+      //If timer has written to channel?
+      // After connection write to channel 
+      // If timer is written to first than it has timed out
 			if err != nil {
 				log.Printf("Replica %d has failed to reply to ping\n", i)
 				master.alive[i] = false
