@@ -46,6 +46,7 @@ func main() {
 	rpc.Register(master)
 	rpc.HandleHTTP()
 	l, err := net.Listen("tcp", fmt.Sprintf(":%d", *portnum))
+  fmt.Println("Master got connection")
 	if err != nil {
 		log.Fatal("Master listen error:", err)
 	}
@@ -67,6 +68,7 @@ func (master *Master) run() {
 	}
 	time.Sleep(2000000000)
 
+  // TODO: How does it get addr list?
 	// connect to SMR servers
 	for i := 0; i < master.N; i++ {
 		var err error
