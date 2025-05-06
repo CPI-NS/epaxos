@@ -17,7 +17,7 @@ go build -o bin/client ./src/client
 echo "Building Open Loop Client"
 go build -o bin/client-ol ./src/client-ol-lat
 
-if [ "$1" == "--eaas" ]; then
+if [ $# != 0 ] && [ "$1" == "--eaas" ]; then
   echo "Building EaaS"
   go build -o bin/eaasclient ./src/eaasclient
 
