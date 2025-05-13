@@ -107,7 +107,7 @@ fi
 TIMEINTERVAL=5
 read -a nodes_arr <<< "$NODES"
 
-num_bands=$((NUMNODES + 1))
+num_bands=$((NUMNODES + 2)) # + 2 because apparently an argument to bands of 2 is invalid? 
 ## DEBUG
 #echo $NODES
 #echo $TIMEINTERVALS
