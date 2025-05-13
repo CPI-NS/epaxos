@@ -89,7 +89,7 @@ func (master *Master) run() {
 		time.Sleep(3000 * 1000 * 1000)
 		new_leader := false
 		for i, node := range master.nodes {
-      timeoutChannel := make(chan int) 
+      pingChannel := make(chan int) 
       errorChannel := make(chan error)
 
       go func() {
@@ -98,23 +98,25 @@ func (master *Master) run() {
           log.Printf("Replica %d has failed to reply to ping\n", i)
           errorChannel <- err
         } else {
-          timeoutChannel <- 0
+          log.Printf("Replica %d has failed to reply to ping before timeout \n", i)
+          pingChannel <- 0
         }
       }()
 
       select {
-      case <-timeoutChannel:
-        fmt.Println("Ping worked")
+      case <-pingChannel:
+        log.Printf("Ping worked")
 				master.alive[i] = true
       case <- time.After(time.Duration(*timeout)*time.Second):
-        fmt.Println("Timeout")
+        log.Printf("Timeout")
         new_leader = checkLeader(i, master)
       case <- errorChannel:
-        fmt.Println("Error from call")
+        log.Printf("Error from call")
         new_leader = checkLeader(i, master)
       }
 		}
 		if !new_leader {
+      log.Printf("continuing")
 			continue
 		}
     log.Printf("Choosing new leader")
@@ -132,6 +134,7 @@ func (master *Master) run() {
 }
 
 func checkLeader(i int, master *Master) bool {
+  log.Printf("checking leader")
   master.alive[i] = false
   new_leader := false
   if master.leader[i] {
