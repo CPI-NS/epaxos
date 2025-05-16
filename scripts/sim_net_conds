@@ -141,7 +141,20 @@ delay=$(echo "$currentinterval * $LATENCYDELTA" | bc -l )
 echo "Current Additional Network Delay is: $delay ms"
 
 get_device ${nodes_arr[0]}
-sudo tc qdisc add dev $dev root handle 1: prio bands $num_bands
+#sudo tc qdisc add dev $dev root handle 1: prio bands $num_bands
+
+
+## This is sending all traffic by default to band 3 we should make it the first bannd?
+sudo tc qdisc add dev $dev root handle 1: prio priomap 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2
+
+
+## SET INITIAL DELAY
+for i in $(seq 0 $(expr $NUMNODES - 1)) ; do
+  get_ip_and_device ${nodes_arr[$i]}
+  band=$((i + 2)) # bands 2...num_bands
+  handle=$((30 + band)) # unique handle (e.g. 32, 33, ...)
+  sudo tc qdisc add dev $dev parent 1:$band handle ${handle}: netem delay ${delay}ms
+done
 
 ## ADD FILTERS TO STEER EACH NODES TRAFFIC INTO ITS OWN BAND
 prio=1
@@ -153,13 +166,6 @@ for i in $(seq 0 $(expr $NUMNODES - 1)) ; do
   ((prio++))
 done
 
-## SET INITIAL DELAY
-for i in $(seq 0 $(expr $NUMNODES - 1)) ; do
-  get_ip_and_device ${nodes_arr[$i]}
-  band=$((i + 2)) # bands 2...num_bands
-  handle=$((30 + band)) # unique handle (e.g. 32, 33, ...)
-  sudo tc qdisc add dev $dev parent 1:$band handle ${handle}: netem delay ${delay}ms
-done
 
 ((currentinterval++))
 while continue_delay
