@@ -141,17 +141,17 @@ delay=$(echo "$currentinterval * $LATENCYDELTA" | bc -l )
 echo "Current Additional Network Delay is: $delay ms"
 
 get_device ${nodes_arr[0]}
-#sudo tc qdisc add dev $dev root handle 1: prio bands $num_bands
 
 
-## This is sending all traffic by default to band 3 we should make it the first bannd?
-sudo tc qdisc add dev $dev root handle 1: prio priomap 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2
+# Send all traffic to band 1 by default and set the number of bands as the number of nodes to add latency to
+# plus 2 
+sudo tc qdisc add dev $dev root handle 1: prio bands $num_bands priomap 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1
 
 
 ## SET INITIAL DELAY
 for i in $(seq 0 $(expr $NUMNODES - 1)) ; do
   get_ip_and_device ${nodes_arr[$i]}
-  band=$((i + 2)) # bands 2...num_bands
+  band=$((i + 3)) # bands 2...num_bands
   handle=$((30 + band)) # unique handle (e.g. 32, 33, ...)
   sudo tc qdisc add dev $dev parent 1:$band handle ${handle}: netem delay ${delay}ms
 done
@@ -161,7 +161,7 @@ prio=1
 for i in $(seq 0 $(expr $NUMNODES - 1)) ; do
   ## NOTE: this assumes that the device is the same across all nodes, this at least seems to be true on cloudlab
   get_ip_and_device ${nodes_arr[$i]}
-  band=$((prio + 1))
+  band=$((prio + 2))
   sudo tc filter add dev $dev protocol ip parent 1:0 prio $prio u32 match ip dst $ip/32 flowid 1:$band
   ((prio++))
 done
@@ -182,7 +182,7 @@ do
   echo "Current Additional Network Delay is: $delay ms"
   for i in $(seq 0 $(expr $NUMNODES - 1)) ; do
     get_ip_and_device ${nodes_arr[$i]}
-    band=$((i + 2)) # bands 2...num_bands
+    band=$((i + 3)) # bands 2...num_bands
     handle=$((30 + band)) # unique handle (e.g. 32, 33, ...)
     sudo tc qdisc change dev $dev parent 1:$band handle ${handle}: netem delay ${delay}ms
   done
