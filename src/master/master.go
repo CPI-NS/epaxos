@@ -98,7 +98,6 @@ func (master *Master) run() {
           log.Printf("Replica %d has failed to reply to ping\n", i)
           errorChannel <- err
         } else {
-          log.Printf("Replica %d has failed to reply to ping before timeout \n", i)
           pingChannel <- 0
         }
       }()
