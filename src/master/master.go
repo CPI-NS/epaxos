@@ -15,6 +15,7 @@ import (
 
 var portnum *int = flag.Int("port", 7087, "Port # to listen on. Defaults to 7087")
 var numNodes *int = flag.Int("N", 3, "Number of replicas. Defaults to 3.")
+var timeout *int = flag.Int("timeout", 2, "Timeout in seconds for nodes responding to ping" )
 
 type Master struct {
 	N        int
@@ -45,6 +46,7 @@ func main() {
 	rpc.Register(master)
 	rpc.HandleHTTP()
 	l, err := net.Listen("tcp", fmt.Sprintf(":%d", *portnum))
+  fmt.Println("Master got connection")
 	if err != nil {
 		log.Fatal("Master listen error:", err)
 	}
@@ -66,6 +68,7 @@ func (master *Master) run() {
 	}
 	time.Sleep(2000000000)
 
+  // TODO: How does it get addr list?
 	// connect to SMR servers
 	for i := 0; i < master.N; i++ {
 		var err error
@@ -86,21 +89,33 @@ func (master *Master) run() {
 		time.Sleep(3000 * 1000 * 1000)
 		new_leader := false
 		for i, node := range master.nodes {
-			err := node.Call("Replica.Ping", new(genericsmrproto.PingArgs), new(genericsmrproto.PingReply))
-			if err != nil {
-				log.Printf("Replica %d has failed to reply to ping\n", i)
-				master.alive[i] = false
-				if master.leader[i] {
-					// neet to choose a new leader
-					new_leader = true
-					master.leader[i] = false
-          log.Printf("Need to choose a new leader")
-				}
-			} else {
+      pingChannel := make(chan int) 
+      errorChannel := make(chan error)
+
+      go func() {
+        err := node.Call("Replica.Ping", new(genericsmrproto.PingArgs), new(genericsmrproto.PingReply))
+        if err != nil {
+          log.Printf("Replica %d has failed to reply to ping\n", i)
+          errorChannel <- err
+        } else {
+          pingChannel <- 0
+        }
+      }()
+
+      select {
+      case <-pingChannel:
+        log.Printf("Ping worked")
 				master.alive[i] = true
-			}
+      case <- time.After(time.Duration(*timeout)*time.Second):
+        log.Printf("Timeout")
+        new_leader = checkLeader(i, master)
+      case <- errorChannel:
+        log.Printf("Error from call")
+        new_leader = checkLeader(i, master)
+      }
 		}
 		if !new_leader {
+      log.Printf("continuing")
 			continue
 		}
     log.Printf("Choosing new leader")
@@ -115,6 +130,19 @@ func (master *Master) run() {
 			}
 		}
 	}
+}
+
+func checkLeader(i int, master *Master) bool {
+  log.Printf("checking leader")
+  master.alive[i] = false
+  new_leader := false
+  if master.leader[i] {
+    // neet to choose a new leader
+    new_leader = true
+    master.leader[i] = false
+    log.Printf("Need to choose a new leader")
+  }
+  return new_leader
 }
 
 func (master *Master) Register(args *masterproto.RegisterArgs, reply *masterproto.RegisterReply) error {
