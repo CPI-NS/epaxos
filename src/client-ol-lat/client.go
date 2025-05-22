@@ -150,6 +150,11 @@ func main() {
 
 		before := time.Now()
 
+    // Put this in a case statement or something with an interrupt channel on one case and this on the default case
+    // maybe that wouldn't work though because the default case would need to run continuously
+    // maybe put the case statement at the end and either continue the loop or exit if an interrupt is found
+    //  incrmement n as requests are being sent and then run as normal after and terminate
+    // First do time based and then do the interrupt ending
 		for i := 0; i < n+*eps; i++ {
 			dlog.Printf("Sending proposal %d\n", id)
 			args.CommandId = id
