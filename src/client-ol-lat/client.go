@@ -146,21 +146,18 @@ func main() {
 
 		go printer(readings, donePrinting)
 
+    reqDone := make(chan bool)
 		if *noLeader {
 			for i := 0; i < N; i++ {
-				go waitReplies(readers, i, perReplicaCount[i], done, readings)
+				//go waitReplies(readers, reqSent, perReplicaCount[reqSent], done, readings)
 			}
 		} else {
-			go waitReplies(readers, leader, n, done, readings)
+			//go  waitReplies(readers, leader, n + 100000, done, readings)
+			go  waitReplies(readers, leader, reqDone, done, readings)
+			//go  waitReplies(readers, leader, reqSent / 100, done, readings)
 		}
 
 		before := time.Now()
-
-    // Put this in a case statement or something with an interrupt channel on one case and this on the default case
-    // maybe that wouldn't work though because the default case would need to run continuously
-    // maybe put the case statement at the end and either continue the loop or exit if an interrupt is found
-    //  incrmement n as requests are being sent and then run as normal after and terminate
-    // First do time based and then do the interrupt ending
 
 		// for i := 0; i < n+*eps; i++ {
     i := 0
@@ -169,9 +166,12 @@ RequestLoop:
       select {
       case <-sigs:
         log.Printf("Termination signal recieved!")
+        reqDone <- true
         break RequestLoop
       default:
-        log.Printf("Sending proposal %d\n", id)
+        if id % 100 == 0 {
+          log.Printf("Sending proposal %d\n", id)
+        }
         args.CommandId = id
         args.Command.K = state.Key(i)
         args.Command.V = state.Value(time.Now().UnixNano())
@@ -188,7 +188,6 @@ RequestLoop:
             writers[rep].Flush()
           }
         }
-        //fmt.Println("Sent", id)
         id++
 
         if i%*batch == 0 {
@@ -202,11 +201,24 @@ RequestLoop:
         i++
       }
 		}
+    // Just because i is overloaded and might get confusing
     reqSent += i
+    fmt.Println("After sending requests")
 
 		for i := 0; i < N; i++ {
 			writers[i].Flush()
 		}
+    fmt.Println("After flushing writers")
+
+    //reqSent -= 10
+		//if *noLeader {
+		//	for i := 0; i < N; i++ {
+		//		go waitReplies(readers, reqSent, perReplicaCount[reqSent], done, readings)
+		//	}
+		//} else {
+		//	go  waitReplies(readers, leader, n + 100000, done, readings)
+		//	//go  waitReplies(readers, leader, reqSent / 100, done, readings)
+		//}
 
 		err := false
 		if *noLeader {
@@ -215,8 +227,12 @@ RequestLoop:
 				err = e || err
 			}
 		} else {
+      // Done is written by get replies
+      // It is waiting for replies to come in because it thinks there is only 5k req?
+      fmt.Println("Before Error waiting")
 			err = <-done
 		}
+    fmt.Println("After Error Waiting")
 
 		after := time.Now()
 
@@ -246,7 +262,8 @@ RequestLoop:
 
 	after_total := time.Now()
 	fmt.Printf("Test took %v\n", after_total.Sub(before_total))
-  fmt.Printf("Throughput: %v\n", reqSent/int(after_total.Sub(before_total)))
+  fmt.Printf("Sent requests  %v\n", reqSent)
+  fmt.Printf("Throughput: %v\n", int64(reqSent)/after_total.Sub(before_total).Milliseconds())
 
 	s := 0
 	for _, succ := range successful {
@@ -263,23 +280,35 @@ RequestLoop:
 	master.Close()
 }
 
-func waitReplies(readers []*bufio.Reader, leader int, n int, done chan bool, readings chan int64) {
+//func waitReplies(readers []*bufio.Reader, leader int, n int, done chan bool, readings chan int64) {
+func waitReplies(readers []*bufio.Reader, leader int, reqDone chan bool, done chan bool, readings chan int64) {
 	e := false
 
-	tss := make([]int64, n)
+	//tss := make([]int64, n)
 
 	reply := new(genericsmrproto.ProposeReplyTS)
-	for i := 0; i < n; i++ {
+
+  EndResp:
+	for i := 0; ; i++ {
+    select{
+    case huh := <- reqDone:
+      if huh {
+        break EndResp
+      }
+    }
 		/*if *noLeader {
 		    leader = rarray[i]
 		}*/
+    // TODO: Eof when trying to unmarshall reply?
+    //fmt.Println("Before ummarshall")
 		if err := reply.Unmarshal(readers[leader]); err != nil {
 			fmt.Println("Error when reading:", err)
-			e = true
+			//e = true
 			continue
 		}
+    //fmt.Println("After ummarshall")
 
-		tss[i] = time.Now().UnixNano() - reply.Timestamp
+	//	tss[i] = time.Now().UnixNano() - reply.Timestamp
 
 		//if *check {
 		//	if rsp[reply.Instance] {
@@ -288,14 +317,16 @@ func waitReplies(readers []*bufio.Reader, leader int, n int, done chan bool, rea
 		//	rsp[reply.Instance] = true
 		//}
 		if reply.OK != 0 {
+      //fmt.Println("Successfull ??? req ", i)
 			successful[leader]++
 		}
 	}
+  fmt.Printf("Done\n")
 	done <- e
 
-	for i := 0; i < n; i++ {
-		readings <- tss[i]
-	}
+	//for i := 0; i < n; i++ {
+	//	readings <- tss[i]
+	//}
 }
 
 func printer(readings chan int64, done chan bool) {
