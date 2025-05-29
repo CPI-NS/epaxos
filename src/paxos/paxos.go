@@ -14,12 +14,12 @@ import (
   "fmt"
 )
 
-const CHAN_BUFFER_SIZE = 200000
+const CHAN_BUFFER_SIZE = 200000000
 const TRUE = uint8(1)
 const FALSE = uint8(0)
 
 //const MAX_BATCH = 5000
-const MAX_BATCH = 50000000
+const MAX_BATCH = 500000000
 
 type Replica struct {
 	*genericsmr.Replica // extends a generic Paxos replica
@@ -297,7 +297,7 @@ func (r *Replica) bcastPrepare(instance int32, ballot int32, toInfinity bool) {
 var pa paxosproto.Accept
 
 func (r *Replica) bcastAccept(instance int32, ballot int32, command []state.Command) {
-  fmt.Println("MULTIPAXOS ACCEPT LOG id: ", instance )
+  //fmt.Println("MULTIPAXOS ACCEPT LOG id: ", instance )
 	defer func() {
 		if err := recover(); err != nil {
 			log.Println("Accept bcast failed:", err)
@@ -385,7 +385,7 @@ func (r *Replica) bcastCommit(instance int32, ballot int32, command []state.Comm
 }
 
 func (r *Replica) handlePropose(propose *genericsmr.Propose) {
-  dlog.Println("Propose in paxos")
+  //fmt.Println("Propose in paxos")
 	if !r.IsLeader {
 		preply := &genericsmrproto.ProposeReplyTS{FALSE, -1, state.NIL, 0}
 		r.ReplyProposeTS(preply, propose.Reply)
@@ -405,7 +405,12 @@ func (r *Replica) handlePropose(propose *genericsmr.Propose) {
 		batchSize = MAX_BATCH
 	}
 
-	dlog.Printf("Batched %d\n", batchSize)
+
+  //fmt.Println("Propose CommandID: ", propose.CommandId)
+  //fmt.Println("Propose command key: ", propose.Command.K)
+  //fmt.Println("Propose command Value: ", propose.Command.V)
+  //fmt.Println("Propose timestamp: ", propose.Timestamp)
+  //fmt.Println("")
 
 	cmds := make([]state.Command, batchSize)
 	proposals := make([]*genericsmr.Propose, batchSize)
@@ -413,7 +418,7 @@ func (r *Replica) handlePropose(propose *genericsmr.Propose) {
 	proposals[0] = propose
 
 	for i := 1; i < batchSize; i++ {
-    dlog.Println("REciving propose command paxos")
+    //fmt.Println("REciving propose command paxos")
 		prop := <-r.ProposeChan
 		cmds[i] = prop.Command
 		proposals[i] = prop

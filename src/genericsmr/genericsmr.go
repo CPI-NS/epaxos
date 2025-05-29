@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-const CHAN_BUFFER_SIZE = 200000
+const CHAN_BUFFER_SIZE = 200000000
 
 type RPCPair struct {
 	Obj  fastrpc.Serializable

@@ -174,12 +174,16 @@ RequestLoop:
         }
         args.CommandId = id
         args.Command.K = state.Key(i)
-        args.Command.V = state.Value(time.Now().UnixNano())
+        args.Command.V = state.Value(i)
         if !*fast {
           if *noLeader {
             leader = rarray[i]
           }
           writers[leader].WriteByte(genericsmrproto.PROPOSE)
+          args.Marshal(writers[leader])
+         // if id % 100 == 0 {
+          //  log.Printf("Sent Proposal %d\n", id)
+          ///}
         } else {
           //send to everyone
           for rep := 0; rep < N; rep++ {
@@ -189,16 +193,28 @@ RequestLoop:
           }
         }
         id++
-
-        if i%*batch == 0 {
-          for i := 0; i < N; i++ {
-            writers[i].Flush()
-          }
-          if *nanosleep > 0 {
-            time.Sleep(time.Duration(*nanosleep))
+        //if i%*batch == 0 {
+        //  for i := 0; i < N; i++ {
+        //    writers[i].Flush()
+        //  }
+        //  if *nanosleep > 0 {
+        //    time.Sleep(time.Duration(*nanosleep))
+        //  }
+        //}
+        i++
+        //if id % 100 == 0 {
+        //  log.Printf("Flushing writers")
+        //}
+        for i := 0; i < N; i++ {
+          err := writers[i].Flush()
+         // log.Printf("Checking error")
+          if err != nil {
+            fmt.Println(err)
           }
         }
-        i++
+        //if id % 100 == 0 {
+        //  log.Printf("Flushed writers")
+        //}
       }
 		}
     // Just because i is overloaded and might get confusing
