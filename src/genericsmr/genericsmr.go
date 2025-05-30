@@ -304,6 +304,7 @@ func (r *Replica) clientListener(conn net.Conn) {
 			if err = prop.Unmarshal(reader); err != nil {
 				break
 			}
+      fmt.Println("Sending message to propose channel")
 			r.ProposeChan <- &Propose{prop, writer}
 			break
 
