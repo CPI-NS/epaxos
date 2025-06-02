@@ -19,7 +19,7 @@ const TRUE = uint8(1)
 const FALSE = uint8(0)
 
 //const MAX_BATCH = 5000
-const MAX_BATCH = 500000000
+const MAX_BATCH = 1
 
 type Replica struct {
 	*genericsmr.Replica // extends a generic Paxos replica
@@ -200,7 +200,7 @@ func (r *Replica) run() {
 
 		case propose := <-onOffProposeChan:
 			//got a Propose from a client
-			log.Printf("Proposal with op %d\n", propose.Command.Op)
+			log.Printf("Proposal with ID %d\n", propose.CommandId)
 			r.handlePropose(propose)
 			//deactivate the new proposals channel to prioritize the handling of protocol messages
 			onOffProposeChan = nil
