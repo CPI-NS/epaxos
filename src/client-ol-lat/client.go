@@ -33,6 +33,7 @@ var s = flag.Float64("s", 2, "Zipfian s parameter")
 var v = flag.Float64("v", 1, "Zipfian v parameter")
 var nanosleep = flag.Int("ns", 0, "Amount of time (in ns) to sleep between two successive commands.")
 var batch = flag.Int("batch", 100, "Commands to send before flush (and sleep).")
+var timeout = flag.Int("t", 10, "How long to send requests for in seconds")
 
 var N int
 
@@ -159,11 +160,20 @@ func main() {
 
 		before := time.Now()
 
+    expTimeout := make(chan bool, 1)
+    go func() {
+      time.Sleep(time.Duration(*timeout) * time.Second)
+      expTimeout <- true
+    }()
+
 		// for i := 0; i < n+*eps; i++ {
     i := 0
 RequestLoop:
     for {
       select {
+      case <- expTimeout:
+        reqDone <- true
+        break RequestLoop
       case <-sigs:
         log.Printf("Termination signal recieved!")
         reqDone <- true

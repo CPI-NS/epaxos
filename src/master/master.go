@@ -78,9 +78,9 @@ func (master *Master) run() {
       //log.Fatalf("Error connecting to replica %d at addr %s with error: %s\n", i, addr, err)
       fmt.Printf("Error connecting to replica %d at addr %s with error: %s\n", i, addr, err)
 		} else {
-      master.leader[i] = false
       log.Println("Connected to replica ", i, "Addr: ", master.addrList[i], " Port: ", master.portList[i]+1000)
     }
+    master.leader[i] = false
 	}
   log.Println("Connected to all replicas")
 	master.leader[0] = true

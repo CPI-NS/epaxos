@@ -136,7 +136,17 @@ delay=$(echo "$currentinterval * $LATENCYDELTA" | bc -l )
 echo "Current Additional Network Delay is: $delay ms"
 for i in $(seq 0 $(expr $NUMNODES - 1)) ; do
   get_ip_and_device ${nodes_arr[$i]}
-  ssh -T -o StrictHostKeyChecking=no $ip "sudo tc qdisc add dev $dev root netem delay ${delay}ms"
+  ## The following `iptables` and `tc filter` commands ensure that ssh traffic isn't slowed down.
+  ## This ensures that the delay added by this script doesn't slow down the script
+  ## If this wasn't here the script would have to wait the current delay to update the delay due to ssh connection 
+  ## This should also fix the issue with ssh timing out after incuring a several second delay due to TCP 
+  ssh -T -o StrictHostKeyChecking=no $ip "\
+sudo tc qdisc add dev $dev root handle 1: prio bands 3 ;\
+sudo tc qdisc add dev $dev parent 1:2 handle 20: netem delay ${delay}ms ;\
+sudo iptables -t mangle -A OUTPUT -p tcp --sport 22 -j MARK --set-mark 22 ;\
+sudo tc filter add dev $dev parent 1:0 protocol ip handle 22 fw flowid 1:1 ;\
+" 
+
 done
 ((currentinterval++))
 while continue_delay
@@ -153,7 +163,7 @@ do
   echo "Current Additional Network Delay is: $delay ms"
   for i in $(seq 0 $(expr $NUMNODES - 1)) ; do
     get_ip_and_device ${nodes_arr[$i]}
-    ssh -T -o StrictHostKeyChecking=no $ip "sudo tc qdisc change dev $dev root netem delay ${delay}ms"
+    ssh -T -o StrictHostKeyChecking=no $ip "sudo tc qdisc change dev $dev parent 1:2 handle 20: netem delay ${delay}ms"
   done
   ((currentinterval++))
 done
@@ -161,7 +171,8 @@ done
 echo "Resetting Network Changes..."
 for i in $(seq 0 $(expr $NUMNODES - 1)) ; do
  get_ip_and_device ${nodes_arr[$i]}
- ssh -T -o StrictHostKeyChecking=no $ip "sudo tc qdisc del dev $dev root" 2>&1
+ ssh -T -o StrictHostKeyChecking=no $ip "sudo tc qdisc del dev $dev root ; sudo iptables -t mangle -F " 2>&1
+
 done
 
 
