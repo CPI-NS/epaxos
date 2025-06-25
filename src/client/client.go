@@ -121,7 +121,7 @@ func main() {
 			log.Fatalf("Error making the GetLeader RPC\n")
 		}
 		leader = reply.LeaderId
-		log.Printf("The leader is replica %d\n", leader)
+		fmt.Printf("The leader is replica %d\n", leader)
 	}
 
 	var id int32 = 0
