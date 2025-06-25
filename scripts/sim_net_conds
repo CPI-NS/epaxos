@@ -47,12 +47,26 @@ display_help () {
                                                                                                          "\033[1m""--time_return=""\033[0m""\033[4m"INTERVAL_RETURN"\033[0m" \
                                                                                                          "\033[0m""\033[4m"INTERVAL_RETURN"\033[0m" \
                                                                                                          "\033[0m""\033[1m"-t"\033[0m"
+  printf "\t %b, %b \n\t\t (optional) The path relative to this script to a client exectuable \n\n" \
+                                                                                                         "\033[1m""-c=""\033[0m""\033[4m"CLIENT"\033[0m" \
+                                                                                                         "\033[1m""--client=""\033[0m""\033[4m"CLIENT"\033[0m"
+
+  printf "\t %b, %b \n\t\t (required if '-c' or '--client' is provided)  The node %b to run the client executable on. \n\t\t Same quoting rules from '-n' apply here \n\n" \
+                                                                                                         "\033[1m""-s=""\033[0m""\033[4m"IPs"\033[0m" \
+                                                                                                         "\033[1m""--client_nodes=""\033[0m""\033[4m"IPs"\033[0m" \
+                                                                                                         "\033[1m"IPs"\033[0m" 
+
+  printf "\t %b, %b \n\t\t (optional if '-c' or '--client' is provided) Optional arguments to pass into the client executable when it is ran \n\n" \
+                                                                                                         "\033[1m""-a=""\033[0m""\033[4m"CLIENT_ARGS"\033[0m" \
+                                                                                                         "\033[1m""--client_args=""\033[0m""\033[4m"CLIENT_ARGS"\033[0m"
+
   printf "\t %b,\tDisplay this help message again \n\n" "\033[1m""-h""\033[0m"
   printf "\n%b \n" "\033[1m"EXAMPLES"\033[0m"
   printf "\t%b\n" "\033[1m""Adding delay to a node:""\033[0m"
   printf "\t\t./sim_net_conds -N=1 -n=node1 -t=15 -l=0.1 -r=10\n\n"
   printf "\t\t./sim_net_conds --num_nodes=1 --nodes=node1 --time_intervals=15 --latency_delta=0.1 --time_return=10\n\n"
   printf "\t\t./sim_net_conds -N=2 -n=\"node1 node2 node3\" -t=15 -l=0.1 -r=10\n\n"
+  printf "\t\t./sim_net_conds -N=2 -n=\"node1 node2 node3\" -t=15 -l=0.1 -r=10 -c=\"../bin/client\" -s=\"node1\" -a=\"-maddr=node0\" \n\n"
   printf "\t%b\n" "\033[1m""Displaying this help message again:""\033[0m"
   printf "\t\t./sim_net_conds -h\n\n"
 }
@@ -166,7 +180,8 @@ get_ip_and_device () {
 run_client () {
     for client_node in ${client_nodes_arr[@]} ; do
       get_ip_and_device $client_node
-      ssh -T -o StrictHostKeyChecking=no $ip "./$client_name $CLIENTARGS" | grep "Round took " | awk '{print $NF}'
+      interval_latency=$(ssh -T -o StrictHostKeyChecking=no $ip "./$client_name $CLIENTARGS" | grep "Round took " | awk '{print $NF}')
+      echo "Interval Latency: $interval_latency"
     done
 }
 
