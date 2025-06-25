@@ -163,6 +163,13 @@ get_ip_and_device () {
     dev=$(ssh -T -o StrictHostKeyChecking=no $ip "ip route get $my_ip | awk 'FNR == 1 {print \$3}'")
 }
 
+run_client () {
+    for client_node in ${client_nodes_arr[@]} ; do
+      get_ip_and_device $client_node
+      ssh -T -o StrictHostKeyChecking=no $ip "./$client_name $CLIENTARGS" | grep "Round took " | awk '{print $NF}'
+    done
+}
+
 ## SCP the client to the client nodes
 if [ $auto_client ] ; then
   for client_node in ${client_nodes_arr[@]} ; do
@@ -171,7 +178,6 @@ if [ $auto_client ] ; then
   done
 fi
 
-exit
 ## Starts at 1 for multiplication reasons
 ## And because conceptually the first delay is the first interval
 currentinterval=1
@@ -195,7 +201,14 @@ done
 ((currentinterval++))
 while continue_delay
 do
+
+  ## This gets done before the sleep because the first delay is set before this while loop
+  if [ $auto_client ] ; then
+    run_client
+  fi
+
   sleep $TIMEINTERVAL
+
   if [ $currentinterval -ge $TIMERETURN ] ; then
     ## Progressively backing off delay
     ## `RI - [ (RI / (TI - RI)) * (CI - RI) ]` Should give a progressive decrease in delay between RI and TI and will end with a delay of 0
@@ -209,14 +222,14 @@ do
     get_ip_and_device ${nodes_arr[$i]}
     ssh -T -o StrictHostKeyChecking=no $ip "sudo tc qdisc change dev $dev parent 1:2 handle 20: netem delay ${delay}ms"
   done
-  if [ $auto_client ] ; then
-    for client_node in ${client_nodes_arr[@]} ; do
-      get_ip_and_device $client_node
-      ssh -T -o StrictHostKeyChecking=no $ip "./$client_name $CLIENTARGS" 
-    done
-  fi
+
   ((currentinterval++))
 done
+
+## Run one last time to get the last latency value
+if [ $auto_client ] ; then
+  run_client
+fi
 
 echo "Resetting Network Changes..."
 for i in $(seq 0 $(expr $NUMNODES - 1)) ; do
