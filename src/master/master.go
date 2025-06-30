@@ -66,7 +66,7 @@ func (master *Master) run() {
 		master.lock.Unlock()
 		time.Sleep(100000000)
 	}
-	time.Sleep(2000000000)
+	time.Sleep(5000000000)
 
   // TODO: How does it get addr list?
 	// connect to SMR servers

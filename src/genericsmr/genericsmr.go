@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/binary"
 	"github.com/efficient/epaxos/src/fastrpc"
+	"github.com/efficient/epaxos/src/dlog"
 	"fmt"
 	"github.com/efficient/epaxos/src/genericsmrproto"
 	"io"
@@ -218,8 +219,12 @@ func (r *Replica) waitForPeerConnections(done chan bool) {
 	done <- true
 }
 
+func writeToConnectionChannel(connChan chan int) {
+  connChan <- 1
+}
+
 /* Client connections dispatcher */
-func (r *Replica) WaitForClientConnections() {
+func (r *Replica) WaitForClientConnections(connChan chan int) {
 	for !r.Shutdown {
 		conn, err := r.Listener.Accept()
 		if err != nil {
@@ -227,6 +232,7 @@ func (r *Replica) WaitForClientConnections() {
 			continue
 		} else {
       log.Println("Accepted client connection on ", conn.RemoteAddr().String())
+      go writeToConnectionChannel(connChan)
     }
 
     log.Println("Calling Client Listener on connection")
@@ -351,6 +357,7 @@ func (r *Replica) SendMsgNoFlush(peerId int32, code uint8, msg fastrpc.Serializa
 }
 
 func (r *Replica) ReplyPropose(reply *genericsmrproto.ProposeReply, w *bufio.Writer) {
+  dlog.Println("Sending ReplyPropose")
 	//r.clientMutex.Lock()
 	//defer r.clientMutex.Unlock()
 	//w.WriteByte(genericsmrproto.PROPOSE_REPLY)
@@ -359,7 +366,7 @@ func (r *Replica) ReplyPropose(reply *genericsmrproto.ProposeReply, w *bufio.Wri
 }
 
 func (r *Replica) ReplyProposeTS(reply *genericsmrproto.ProposeReplyTS, w *bufio.Writer) {
-  //fmt.Println("ReplyProposeTs")
+  dlog.Println("Sending ReplyProposeTs for ID ", reply.CommandId)
 	//r.clientMutex.Lock()
 	//defer r.clientMutex.Unlock()
 	//w.WriteByte(genericsmrproto.PROPOSE_REPLY)

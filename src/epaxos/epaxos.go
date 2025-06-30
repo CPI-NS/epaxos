@@ -279,7 +279,9 @@ func (r *Replica) run() {
 
 	dlog.Println("Waiting for client connections")
 
-	go r.WaitForClientConnections()
+  // make a different channel and use it to signal when a new client connects (when a new interval is happening)
+  var unusedChan chan int
+	go r.WaitForClientConnections(unusedChan)
 
 	if r.Exec {
 		go r.executeCommands()

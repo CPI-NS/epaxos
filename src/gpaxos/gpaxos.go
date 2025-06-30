@@ -289,7 +289,8 @@ func (r *Replica) run() {
 
 	dlog.Println("Waiting for client connections")
 
-	go r.WaitForClientConnections()
+  var unusedChan chan int
+	go r.WaitForClientConnections(unusedChan)
 
 	/*if r.Exec {
 	    go r.executeCommands()
