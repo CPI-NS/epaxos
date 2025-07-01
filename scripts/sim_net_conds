@@ -114,6 +114,10 @@ for i in "$@"; do
             CLIENTARGS="${i#*=}"
             shift
             ;;
+        -o=*|--other_nodes=*)
+          OTHERNODES="${i#*=}"
+          shift
+          ;;
         -h*|--help*)
           display_help
           exit 1
@@ -133,7 +137,7 @@ if [ -n "$CLIENT" ] && [ -n "$CLIENTNODES" ] ; then
   read -a client_nodes_arr <<< "$CLIENTNODES" 
   client_name=$(basename ${CLIENT})
   auto_client=true
-else
+elif [ -n "$CLIENT" ] || [ -n "$CLIENTNODES" ] ; then
   echo "Incorrect Arguments!"
   echo "If you provide a client executable you must provide the nodes to run it on!"
   echo "See -h for usage."
@@ -150,6 +154,10 @@ fi
 ## 5s
 TIMEINTERVAL=5
 read -a nodes_arr <<< "$NODES"
+
+if [ -n "$OTHERNODES" ] ; then
+  read -a other_nodes_arr <<< "$OTHERNODES"
+fi
 
 ## DEBUG
 #echo $NODES
@@ -181,8 +189,21 @@ run_client () {
     for client_node in ${client_nodes_arr[@]} ; do
       get_ip_and_device $client_node
       interval_latency=$(ssh -T -o StrictHostKeyChecking=no $ip "./$client_name $CLIENTARGS" | grep "Round took " | awk '{print $NF}')
-      echo "Interval Latency: $interval_latency"
+      echo "Interval L3 Latency: $interval_latency"
     done
+}
+
+get_ping_latency () {
+#  read -a other_nodes_arr <<< "$OTHERNODES"
+  for node in ${nodes_arr[@]} ; do
+    get_ip_and_device $node
+    nodeip=$ip
+    for other_node in ${other_nodes_arr[@]} ; do
+      get_ip_and_device $other_node
+      ping_latency=$(ssh -T -o StrictHostKeyChecking=no $nodeip "ping -c 1 $ip" | awk 'FNR == 2 {print $7}' | cut -d = -f 2 | sed 's/$/ms/')
+      echo "$node Interval L1 Latency to $other_node : $ping_latency" 
+    done
+  done
 }
 
 ## SCP the client to the client nodes
@@ -217,8 +238,10 @@ done
 while continue_delay
 do
 
+ 
   ## This gets done before the sleep because the first delay is set before this while loop
   if [ $auto_client ] ; then
+    get_ping_latency
     run_client
   fi
 
@@ -243,6 +266,7 @@ done
 
 ## Run one last time to get the last latency value
 if [ $auto_client ] ; then
+  get_ping_latency
   run_client
 fi
 
