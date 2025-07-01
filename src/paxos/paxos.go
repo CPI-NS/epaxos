@@ -213,17 +213,17 @@ func (r *Replica) run() {
 
 		select {
 
-		case <-clockChan:
-			//activate the new proposals channel
-			onOffProposeChan = r.ProposeChan
-			break
+		//case <-clockChan:
+		//	//activate the new proposals channel
+		//	//onOffProposeChan = r.ProposeChan
+		//	break
 
 		case propose := <-onOffProposeChan:
 			//got a Propose from a client
 			dlog.Printf("Received Proposal with ID %d\n", propose.CommandId)
 			r.handlePropose(propose)
 			//deactivate the new proposals channel to prioritize the handling of protocol messages
-			onOffProposeChan = nil
+		//	onOffProposeChan = nil
 			break
 
 		case prepareS := <-r.prepareChan:

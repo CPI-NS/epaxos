@@ -210,7 +210,7 @@ get_ping_latency () {
 if [ $auto_client ] ; then
   for client_node in ${client_nodes_arr[@]} ; do
     get_ip_and_device $client_node
-    scp $CLIENT $ip:
+    scp $CLIENT $ip: > /dev/null
   done
 fi
 
@@ -243,6 +243,7 @@ do
   if [ $auto_client ] ; then
     get_ping_latency
     run_client
+    echo ""
   fi
 
   sleep $TIMEINTERVAL
@@ -268,6 +269,7 @@ done
 if [ $auto_client ] ; then
   get_ping_latency
   run_client
+  echo ""
 fi
 
 echo "Resetting Network Changes..."
