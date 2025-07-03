@@ -14,6 +14,8 @@ import (
 	"runtime"
 	"github.com/efficient/epaxos/src/state"
 	"time"
+  "slices"
+  "math"
 )
 
 var masterAddr *string = flag.String("maddr", "", "Master address. Defaults to localhost")
@@ -31,6 +33,12 @@ var s = flag.Float64("s", 2, "Zipfian s parameter")
 var v = flag.Float64("v", 1, "Zipfian v parameter")
 
 var N int
+
+//var startTime [*reqsNb]time.Time
+//var endTime [*reqsNb]time.Time
+
+var startTime = make([]time.Time, *reqsNb)
+var endTime = make([]time.Time, *reqsNb)
 
 var successful []int
 
@@ -121,7 +129,7 @@ func main() {
 			log.Fatalf("Error making the GetLeader RPC\n")
 		}
 		leader = reply.LeaderId
-		log.Printf("The leader is replica %d\n", leader)
+		fmt.Printf("The leader is replica %d\n", leader)
 	}
 
 	var id int32 = 0
@@ -161,6 +169,9 @@ func main() {
 			}
 			args.Command.K = state.Key(karray[i])
 			args.Command.V = state.Value(i)
+
+      /* Start time for latency */
+      startTime[id] = time.Now()
 			//args.Timestamp = time.Now().UnixNano()
 			if !*fast {
 				if *noLeader {
@@ -168,6 +179,7 @@ func main() {
 				}
 				writers[leader].WriteByte(genericsmrproto.PROPOSE)
 				args.Marshal(writers[leader])
+        /*Note: the proposal actually gets sent with this flush() I think */
         writers[leader].Flush()
 			} else {
 				//send to everyone
@@ -179,11 +191,11 @@ func main() {
 			}
 			//fmt.Println("Sent", id)
 			id++
-			if i%100 == 0 {
-				for i := 0; i < N; i++ {
-					writers[i].Flush()
-				}
-			}
+			//if i%100 == 0 {
+			//	for i := 0; i < N; i++ {
+			//		writers[i].Flush()
+			//	}
+			//}
 		}
 		for i := 0; i < N; i++ {
 			writers[i].Flush()
@@ -233,6 +245,24 @@ func main() {
 
 	fmt.Printf("Successful: %d\n", s)
 
+  var latSlice = make([]time.Duration, *reqsNb)
+  for i := 0; i < len(startTime); i++ {
+    latSlice[i] = endTime[i].Sub(startTime[i])
+  }
+
+  slices.SortFunc(latSlice, func(a, b time.Duration) int { 
+    if a < b {
+      return -1
+    } else if a > b {
+      return 1
+    } else {
+      return 0
+    }
+  })
+  
+  fmt.Printf("Median %v\n", latSlice[*reqsNb/2])
+  fmt.Printf("P99 %v\n", latSlice[int(math.Ceil(0.99 * float64(len(latSlice)))) -1])
+
 	for _, client := range servers {
 		if client != nil {
 			client.Close()
@@ -241,8 +271,6 @@ func main() {
 	master.Close()
 }
 
-func batchPut() {
-}
 
 func waitReplies(readers []*bufio.Reader, leader int, n int, done chan bool) {
 	e := false
@@ -254,7 +282,7 @@ func waitReplies(readers []*bufio.Reader, leader int, n int, done chan bool) {
 			e = true
 			continue
 		}
-		//fmt.Println(reply.Value)
+    endTime[reply.CommandId] = time.Now()
 		if *check {
 			if rsp[reply.CommandId] {
 				fmt.Println("Duplicate reply", reply.CommandId)

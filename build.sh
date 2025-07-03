@@ -7,6 +7,7 @@
 #        `./build.sh --eaas` to build the eaas client
 # 
 
+echo $(pwd)
 
 echo "Building Master"
 go build -o bin/master ./src/master
