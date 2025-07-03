@@ -2,17 +2,18 @@ package main
 
 import (
 	"log"
+	//"github.com/efficient/epaxos/src/dlog"
 	//	"dlog"
 	"bufio"
 	"flag"
 	"fmt"
-	"genericsmrproto"
-	"masterproto"
+	"github.com/efficient/epaxos/src/genericsmrproto"
+	"github.com/efficient/epaxos/src/masterproto"
 	"math/rand"
 	"net"
 	"net/rpc"
 	"runtime"
-	"state"
+	"github.com/efficient/epaxos/src/state"
 	"time"
 )
 
@@ -126,7 +127,8 @@ func simulatedClient(rlReply *masterproto.GetReplicaListReply, leader int, readi
 	}
 
 	var id int32 = 0
-	args := genericsmrproto.Propose{id, state.Command{state.PUT, 0, 0}}
+	//args := genericsmrproto.Propose{id, state.Command{state.PUT, 0, 0}}
+	args := genericsmrproto.Propose{id, state.Command{state.PUT, 0, 0}, 0}
 	var reply genericsmrproto.ProposeReply
 
 	n := *reqsNb
@@ -135,7 +137,8 @@ func simulatedClient(rlReply *masterproto.GetReplicaListReply, leader int, readi
 		if *noLeader {
 			leader = rarray[i]
 		}
-		args.ClientId = id
+		//args.ClientId = id
+		args.CommandId = id
 		args.Command.K = state.Key(karray[i])
 		writers[leader].WriteByte(genericsmrproto.PROPOSE)
 
