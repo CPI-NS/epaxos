@@ -14,11 +14,15 @@ import (
   "fmt"
 )
 
-const CHAN_BUFFER_SIZE = 200000
+const CHAN_BUFFER_SIZE = 200000000
 const TRUE = uint8(1)
 const FALSE = uint8(0)
 
-const MAX_BATCH = 5000
+var oneRoundLatencyStart time.Time
+var oneRoundLatencyEnd   time.Time
+
+//const MAX_BATCH = 5000
+const MAX_BATCH = 1
 
 type Replica struct {
 	*genericsmr.Replica // extends a generic Paxos replica
@@ -144,10 +148,12 @@ func (r *Replica) BeTheLeader(args *genericsmrproto.BeTheLeaderArgs, reply *gene
 }
 
 func (r *Replica) replyPrepare(replicaId int32, reply *paxosproto.PrepareReply) {
+  dlog.Println("Sending replyPrepare for instance", reply.Instance)
 	r.SendMsg(replicaId, r.prepareReplyRPC, reply)
 }
 
 func (r *Replica) replyAccept(replicaId int32, reply *paxosproto.AcceptReply) {
+  dlog.Println("Sending replyAccept for instance", reply.Instance)
 	r.SendMsg(replicaId, r.acceptReplyRPC, reply)
 }
 
@@ -164,13 +170,28 @@ func (r *Replica) clock() {
 
 /* Main event processing loop */
 
+var connChan chan int
+
+func resetLatencyTimersIfNewClientConnects() {
+  var zeroTime time.Time
+  for {
+    select {
+    case <-connChan:
+      oneRoundLatencyStart = zeroTime
+      oneRoundLatencyEnd   = zeroTime
+    }
+  }
+}
+
 func (r *Replica) run() {
+  connChan = make(chan int)
 
 	r.ConnectToPeers()
 
 	dlog.Println("Waiting for client connections")
 
-	go r.WaitForClientConnections()
+	go r.WaitForClientConnections(connChan)
+  go resetLatencyTimersIfNewClientConnects()
 
   dlog.Println("Before executing commands")
 	if r.Exec {
@@ -192,17 +213,17 @@ func (r *Replica) run() {
 
 		select {
 
-		case <-clockChan:
-			//activate the new proposals channel
-			onOffProposeChan = r.ProposeChan
-			break
+		//case <-clockChan:
+		//	//activate the new proposals channel
+		//	//onOffProposeChan = r.ProposeChan
+		//	break
 
 		case propose := <-onOffProposeChan:
 			//got a Propose from a client
-			dlog.Printf("Proposal with op %d\n", propose.Command.Op)
+			dlog.Printf("Received Proposal with ID %d\n", propose.CommandId)
 			r.handlePropose(propose)
 			//deactivate the new proposals channel to prioritize the handling of protocol messages
-			onOffProposeChan = nil
+		//	onOffProposeChan = nil
 			break
 
 		case prepareS := <-r.prepareChan:
@@ -241,6 +262,14 @@ func (r *Replica) run() {
 			break
 
 		case acceptReplyS := <-r.acceptReplyChan:
+      //TODO: End L2 timer here.
+      if oneRoundLatencyEnd.IsZero() {
+        oneRoundLatencyEnd = time.Now()
+        oneRoundLatency := oneRoundLatencyEnd.Sub(oneRoundLatencyStart)
+
+        fmt.Println("L2 Latency: ", oneRoundLatency )
+      }
+
 			acceptReply := acceptReplyS.(*paxosproto.AcceptReply)
 			//got an Accept reply
 			dlog.Printf("Received AcceptReply for instance %d\n", acceptReply.Instance)
@@ -262,7 +291,7 @@ func (r *Replica) updateCommittedUpTo() {
 }
 
 func (r *Replica) bcastPrepare(instance int32, ballot int32, toInfinity bool) {
-  fmt.Println("NOT MULTI PAXOS PREPARE LOG")
+  dlog.Println("Sending bcastPrepare for instance ", instance)
 	defer func() {
 		if err := recover(); err != nil {
 			log.Println("Prepare bcast failed:", err)
@@ -295,8 +324,10 @@ func (r *Replica) bcastPrepare(instance int32, ballot int32, toInfinity bool) {
 
 var pa paxosproto.Accept
 
+// TODO: Start L2 timer here
 func (r *Replica) bcastAccept(instance int32, ballot int32, command []state.Command) {
-  fmt.Println("MULTIPAXOS ACCEPT LOG")
+  //fmt.Println("MULTIPAXOS ACCEPT LOG id: ", instance )
+  dlog.Println("Sending bcastAccept for instance", instance)
 	defer func() {
 		if err := recover(); err != nil {
 			log.Println("Accept bcast failed:", err)
@@ -324,6 +355,10 @@ func (r *Replica) bcastAccept(instance int32, ballot int32, command []state.Comm
 			continue
 		}
 		sent++
+
+    if oneRoundLatencyStart.IsZero() {
+      oneRoundLatencyStart = time.Now()
+    }
 		r.SendMsg(q, r.acceptRPC, args)
 	}
 }
@@ -332,6 +367,7 @@ var pc paxosproto.Commit
 var pcs paxosproto.CommitShort
 
 func (r *Replica) bcastCommit(instance int32, ballot int32, command []state.Command) {
+  dlog.Println("Sending bcastCommit for instance", instance)
 	defer func() {
 		if err := recover(); err != nil {
 			log.Println("Commit bcast failed:", err)
@@ -384,7 +420,7 @@ func (r *Replica) bcastCommit(instance int32, ballot int32, command []state.Comm
 }
 
 func (r *Replica) handlePropose(propose *genericsmr.Propose) {
-  dlog.Println("Propose in paxos")
+  //fmt.Println("Propose in paxos")
 	if !r.IsLeader {
 		preply := &genericsmrproto.ProposeReplyTS{FALSE, -1, state.NIL, 0}
 		r.ReplyProposeTS(preply, propose.Reply)
@@ -404,7 +440,12 @@ func (r *Replica) handlePropose(propose *genericsmr.Propose) {
 		batchSize = MAX_BATCH
 	}
 
-	dlog.Printf("Batched %d\n", batchSize)
+
+  //fmt.Println("Propose CommandID: ", propose.CommandId)
+  //fmt.Println("Propose command key: ", propose.Command.K)
+  //fmt.Println("Propose command Value: ", propose.Command.V)
+  //fmt.Println("Propose timestamp: ", propose.Timestamp)
+  //fmt.Println("")
 
 	cmds := make([]state.Command, batchSize)
 	proposals := make([]*genericsmr.Propose, batchSize)
@@ -412,7 +453,7 @@ func (r *Replica) handlePropose(propose *genericsmr.Propose) {
 	proposals[0] = propose
 
 	for i := 1; i < batchSize; i++ {
-    dlog.Println("REciving propose command paxos")
+    //fmt.Println("Reciving propose command paxos")
 		prop := <-r.ProposeChan
 		cmds[i] = prop.Command
 		proposals[i] = prop
@@ -426,7 +467,7 @@ func (r *Replica) handlePropose(propose *genericsmr.Propose) {
 			PREPARING,
 			&LeaderBookkeeping{proposals, 0, 0, 0, 0}}
 		r.bcastPrepare(instNo, r.makeUniqueBallot(0), true)
-		dlog.Printf("Classic round for instance %d\n", instNo)
+		dlog.Printf("Classic round (bcast prepare) for instance %d\n", instNo)
 	} else {
 		r.instanceSpace[instNo] = &Instance{
 			cmds,
@@ -439,7 +480,7 @@ func (r *Replica) handlePropose(propose *genericsmr.Propose) {
 		r.sync()
 
 		r.bcastAccept(instNo, r.defaultBallot, cmds)
-		dlog.Printf("Fast round for instance %d\n", instNo)
+		dlog.Printf("Fast round (bcast accept) for instance %d\n", instNo)
 	}
 }
 

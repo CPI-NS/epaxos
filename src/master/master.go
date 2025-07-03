@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/efficient/epaxos/src/genericsmrproto"
+	"github.com/efficient/epaxos/src/dlog"
 	"log"
 	"github.com/efficient/epaxos/src/masterproto"
 	"net"
@@ -66,7 +67,7 @@ func (master *Master) run() {
 		master.lock.Unlock()
 		time.Sleep(100000000)
 	}
-	time.Sleep(2000000000)
+	time.Sleep(5000000000)
 
   // TODO: How does it get addr list?
 	// connect to SMR servers
@@ -77,9 +78,10 @@ func (master *Master) run() {
 		if err != nil {
       //log.Fatalf("Error connecting to replica %d at addr %s with error: %s\n", i, addr, err)
       fmt.Printf("Error connecting to replica %d at addr %s with error: %s\n", i, addr, err)
-		}
-		master.leader[i] = false
-    log.Println("Connected to replica ", i, "Addr: ", master.addrList[i], " Port: ", master.portList[i])
+		} else {
+      log.Println("Connected to replica ", i, "Addr: ", master.addrList[i], " Port: ", master.portList[i]+1000)
+    }
+    master.leader[i] = false
 	}
   log.Println("Connected to all replicas")
 	master.leader[0] = true
@@ -104,7 +106,7 @@ func (master *Master) run() {
 
       select {
       case <-pingChannel:
-        log.Printf("Ping worked")
+        dlog.Printf("Ping worked")
 				master.alive[i] = true
       case <- time.After(time.Duration(*timeout)*time.Second):
         log.Printf("Timeout")
@@ -115,7 +117,7 @@ func (master *Master) run() {
       }
 		}
 		if !new_leader {
-      log.Printf("continuing")
+      dlog.Printf("continuing")
 			continue
 		}
     log.Printf("Choosing new leader")

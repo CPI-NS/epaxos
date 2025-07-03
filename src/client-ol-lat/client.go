@@ -2,7 +2,7 @@ package main
 
 import (
 	"bufio"
-	"github.com/efficient/epaxos/src/dlog"
+//	"github.com/efficient/epaxos/src/dlog"
 	"flag"
 	"fmt"
 	"github.com/efficient/epaxos/src/genericsmrproto"
@@ -14,6 +14,9 @@ import (
 	"runtime"
 	"github.com/efficient/epaxos/src/state"
 	"time"
+  "os"
+  "os/signal"
+  "syscall"
 )
 
 var masterAddr *string = flag.String("maddr", "", "Master address. Defaults to localhost")
@@ -30,6 +33,7 @@ var s = flag.Float64("s", 2, "Zipfian s parameter")
 var v = flag.Float64("v", 1, "Zipfian v parameter")
 var nanosleep = flag.Int("ns", 0, "Amount of time (in ns) to sleep between two successive commands.")
 var batch = flag.Int("batch", 100, "Commands to send before flush (and sleep).")
+var timeout = flag.Int("t", 10, "How long to send requests for in seconds")
 
 var N int
 
@@ -124,6 +128,7 @@ func main() {
 
 	before_total := time.Now()
 
+  reqSent := 0
 	for j := 0; j < *rounds; j++ {
 
 		n := *reqsNb / *rounds
@@ -137,58 +142,109 @@ func main() {
 
 		donePrinting := make(chan bool)
 		readings := make(chan int64, n)
+    sigs := make(chan os.Signal, 1)
+    signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
 		go printer(readings, donePrinting)
 
+    reqDone := make(chan bool)
 		if *noLeader {
 			for i := 0; i < N; i++ {
-				go waitReplies(readers, i, perReplicaCount[i], done, readings)
+				//go waitReplies(readers, reqSent, perReplicaCount[reqSent], done, readings)
 			}
 		} else {
-			go waitReplies(readers, leader, n, done, readings)
+			//go  waitReplies(readers, leader, n + 100000, done, readings)
+			go  waitReplies(readers, leader, reqDone, done, readings)
+			//go  waitReplies(readers, leader, reqSent / 100, done, readings)
 		}
 
 		before := time.Now()
 
-    // Put this in a case statement or something with an interrupt channel on one case and this on the default case
-    // maybe that wouldn't work though because the default case would need to run continuously
-    // maybe put the case statement at the end and either continue the loop or exit if an interrupt is found
-    //  incrmement n as requests are being sent and then run as normal after and terminate
-    // First do time based and then do the interrupt ending
-		for i := 0; i < n+*eps; i++ {
-			dlog.Printf("Sending proposal %d\n", id)
-			args.CommandId = id
-			args.Command.K = state.Key(karray[i])
-			args.Command.V = state.Value(time.Now().UnixNano())
-			if !*fast {
-				if *noLeader {
-					leader = rarray[i]
-				}
-				writers[leader].WriteByte(genericsmrproto.PROPOSE)
-				args.Marshal(writers[leader])
-			} else {
-				//send to everyone
-				for rep := 0; rep < N; rep++ {
-					writers[rep].WriteByte(genericsmrproto.PROPOSE)
-					args.Marshal(writers[rep])
-					writers[rep].Flush()
-				}
-			}
-			//fmt.Println("Sent", id)
-			id++
+    expTimeout := make(chan bool, 1)
+    go func() {
+      time.Sleep(time.Duration(*timeout) * time.Second)
+      expTimeout <- true
+    }()
 
-			if i%*batch == 0 {
-				for i := 0; i < N; i++ {
-					writers[i].Flush()
-				}
-				if *nanosleep > 0 {
-					time.Sleep(time.Duration(*nanosleep))
-				}
-			}
+		// for i := 0; i < n+*eps; i++ {
+    i := 0
+RequestLoop:
+    for {
+      select {
+      case <- expTimeout:
+        reqDone <- true
+        break RequestLoop
+      case <-sigs:
+        log.Printf("Termination signal recieved!")
+        reqDone <- true
+        break RequestLoop
+      default:
+        if id % 100 == 0 {
+          log.Printf("Sending proposal %d\n", id)
+        }
+        args.CommandId = id
+        args.Command.K = state.Key(i)
+        args.Command.V = state.Value(i)
+        if !*fast {
+          if *noLeader {
+            leader = rarray[i]
+          }
+          writers[leader].WriteByte(genericsmrproto.PROPOSE)
+          args.Marshal(writers[leader])
+         // if id % 100 == 0 {
+          //  log.Printf("Sent Proposal %d\n", id)
+          ///}
+        } else {
+          //send to everyone
+          for rep := 0; rep < N; rep++ {
+            writers[rep].WriteByte(genericsmrproto.PROPOSE)
+            args.Marshal(writers[rep])
+            writers[rep].Flush()
+          }
+        }
+        id++
+        //if i%*batch == 0 {
+        //  for i := 0; i < N; i++ {
+        //    writers[i].Flush()
+        //  }
+        //  if *nanosleep > 0 {
+        //    time.Sleep(time.Duration(*nanosleep))
+        //  }
+        //}
+        i++
+        //if id % 100 == 0 {
+        //  log.Printf("Flushing writers")
+        //}
+        for i := 0; i < N; i++ {
+          err := writers[i].Flush()
+         // log.Printf("Checking error")
+          if err != nil {
+            fmt.Println(err)
+          }
+        }
+        //if id % 100 == 0 {
+        //  log.Printf("Flushed writers")
+        //}
+      }
 		}
+    // Just because i is overloaded and might get confusing
+    reqSent += i
+    fmt.Println("After sending requests")
+
 		for i := 0; i < N; i++ {
 			writers[i].Flush()
 		}
+    fmt.Println("After flushing writers")
+
+    //reqSent -= 10
+		//if *noLeader {
+		//	for i := 0; i < N; i++ {
+		//		go waitReplies(readers, reqSent, perReplicaCount[reqSent], done, readings)
+		//	}
+		//} else {
+		//	go  waitReplies(readers, leader, n + 100000, done, readings)
+		//	//go  waitReplies(readers, leader, reqSent / 100, done, readings)
+		//}
 
 		err := false
 		if *noLeader {
@@ -197,8 +253,12 @@ func main() {
 				err = e || err
 			}
 		} else {
+      // Done is written by get replies
+      // It is waiting for replies to come in because it thinks there is only 5k req?
+      fmt.Println("Before Error waiting")
 			err = <-done
 		}
+    fmt.Println("After Error Waiting")
 
 		after := time.Now()
 
@@ -228,6 +288,8 @@ func main() {
 
 	after_total := time.Now()
 	fmt.Printf("Test took %v\n", after_total.Sub(before_total))
+  fmt.Printf("Sent requests  %v\n", reqSent)
+  fmt.Printf("Throughput: %v\n", int64(reqSent)/after_total.Sub(before_total).Milliseconds())
 
 	s := 0
 	for _, succ := range successful {
@@ -244,23 +306,35 @@ func main() {
 	master.Close()
 }
 
-func waitReplies(readers []*bufio.Reader, leader int, n int, done chan bool, readings chan int64) {
+//func waitReplies(readers []*bufio.Reader, leader int, n int, done chan bool, readings chan int64) {
+func waitReplies(readers []*bufio.Reader, leader int, reqDone chan bool, done chan bool, readings chan int64) {
 	e := false
 
-	tss := make([]int64, n)
+	//tss := make([]int64, n)
 
 	reply := new(genericsmrproto.ProposeReplyTS)
-	for i := 0; i < n; i++ {
+
+  EndResp:
+	for i := 0; ; i++ {
+    select{
+    case huh := <- reqDone:
+      if huh {
+        break EndResp
+      }
+    }
 		/*if *noLeader {
 		    leader = rarray[i]
 		}*/
+    // TODO: Eof when trying to unmarshall reply?
+    //fmt.Println("Before ummarshall")
 		if err := reply.Unmarshal(readers[leader]); err != nil {
 			fmt.Println("Error when reading:", err)
-			e = true
+			//e = true
 			continue
 		}
+    //fmt.Println("After ummarshall")
 
-		tss[i] = time.Now().UnixNano() - reply.Timestamp
+	//	tss[i] = time.Now().UnixNano() - reply.Timestamp
 
 		//if *check {
 		//	if rsp[reply.Instance] {
@@ -269,21 +343,23 @@ func waitReplies(readers []*bufio.Reader, leader int, n int, done chan bool, rea
 		//	rsp[reply.Instance] = true
 		//}
 		if reply.OK != 0 {
+      //fmt.Println("Successfull ??? req ", i)
 			successful[leader]++
 		}
 	}
+  fmt.Printf("Done\n")
 	done <- e
 
-	for i := 0; i < n; i++ {
-		readings <- tss[i]
-	}
+	//for i := 0; i < n; i++ {
+	//	readings <- tss[i]
+	//}
 }
 
 func printer(readings chan int64, done chan bool) {
 	n := *reqsNb
 	for i := 0; i < n; i++ {
-		lat := <-readings
-		fmt.Printf("%d\n", lat/1000)
+		//lat := <-readings
+		//fmt.Printf("%d\n", lat/1000)
 	}
 	done <- true
 }
