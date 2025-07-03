@@ -12,10 +12,12 @@ echo "Building Master"
 go build -o bin/master ./src/master
 echo "Building Server"
 go build -o bin/server ./src/server
-echo "Building Client"
-go build -o bin/client ./src/client
-echo "Building Open Loop Client"
-go build -o bin/client-ol ./src/client-ol-lat
+#echo "Building Client"
+#go build -o bin/client ./src/client
+echo "Building DESS Client"
+go build -o bin/client ./src/dess_client
+#echo "Building Open Loop Client"
+#go build -o bin/client-ol ./src/client-ol-lat
 
 if [ "$1" == "--eaas" ]; then
   echo "Building EaaS"
