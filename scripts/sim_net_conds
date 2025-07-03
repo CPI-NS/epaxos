@@ -42,7 +42,7 @@ display_help () {
                                                                                                          "\033[1m""-l=""\033[0m""\033[4m"LATENCY_DELTA"\033[0m" \
                                                                                                          "\033[1m""--latency_delta=""\033[0m""\033[4m"LATENCY_DELTA"\033[0m"
 
-  printf "\t %b, %b \n\t\t Integer value of after %b time intervals the delay should start to decrease. \n\t\t The return will evenly decrease the delay across the remaining time intervals specified in %b \n\n" \
+  printf "\t %b, %b \n\t\t Optional integer value of after %b time intervals the delay should start to decrease. \n\t\t The return will evenly decrease the delay across the remaining time intervals specified in %b. \n\t\t This value MUST be strictly less than the amount of intervals. \n\n" \
                                                                                                          "\033[1m""-r=""\033[0m""\033[4m"INTERVAL_RETURN"\033[0m"  \
                                                                                                          "\033[1m""--time_return=""\033[0m""\033[4m"INTERVAL_RETURN"\033[0m" \
                                                                                                          "\033[0m""\033[4m"INTERVAL_RETURN"\033[0m" \
@@ -60,13 +60,18 @@ display_help () {
                                                                                                          "\033[1m""-a=""\033[0m""\033[4m"CLIENT_ARGS"\033[0m" \
                                                                                                          "\033[1m""--client_args=""\033[0m""\033[4m"CLIENT_ARGS"\033[0m"
 
+  printf "\t %b, %b \n\t\t Optional argument to output L1 Latency (ping latency) between nodes. \n\t\t This value is the other nodes of the protocol that aren't having added delay \n\n" \
+                                                                                                         "\033[1m""-o=""\033[0m""\033[4m"OTHER_NODES"\033[0m" \
+                                                                                                         "\033[1m""--other_nodes=""\033[0m""\033[4m"OTHER_NODES"\033[0m"
+
   printf "\t %b,\tDisplay this help message again \n\n" "\033[1m""-h""\033[0m"
   printf "\n%b \n" "\033[1m"EXAMPLES"\033[0m"
   printf "\t%b\n" "\033[1m""Adding delay to a node:""\033[0m"
   printf "\t\t./sim_net_conds -N=1 -n=node1 -t=15 -l=0.1 -r=10\n\n"
   printf "\t\t./sim_net_conds --num_nodes=1 --nodes=node1 --time_intervals=15 --latency_delta=0.1 --time_return=10\n\n"
-  printf "\t\t./sim_net_conds -N=2 -n=\"node1 node2 node3\" -t=15 -l=0.1 -r=10\n\n"
-  printf "\t\t./sim_net_conds -N=2 -n=\"node1 node2 node3\" -t=15 -l=0.1 -r=10 -c=\"../bin/client\" -s=\"node1\" -a=\"-maddr=node0\" \n\n"
+  printf "\t\t./sim_net_conds -N=3 -n=\"node1 node2 node3\" -t=15 -l=0.1 -r=10\n\n"
+  printf "\t\t./sim_net_conds -N=3 -n=\"node1 node2 node3\" -t=15 -l=0.1 -r=10 -c=\"../bin/client\" -s=\"node1\" -a=\"-maddr=node0\" \n\n"
+  printf "\t\t./sim_net_conds -N=1 -n=\"node1\" -t=15 -l=0.1 -r=10 -c=\"../bin/client\" -s=\"node1\" -a=\"-maddr=node0\"  -o=\"node2 node3\" \n\n"
   printf "\t%b\n" "\033[1m""Displaying this help message again:""\033[0m"
   printf "\t\t./sim_net_conds -h\n\n"
 }
@@ -144,12 +149,12 @@ elif [ -n "$CLIENT" ] || [ -n "$CLIENTNODES" ] ; then
   exit 1
 fi
 
-#if [ "$NUMNODES" == "" ] || [ "$NODES" == "" ] || [ "$TIMEINTERVALS" == "" ] || [ "$LATENCYDELTA" == "" ] || [ "$TIMERETURN" == "" ] ; then
-#  echo "Incorrect number of args!"
-#  echo "Please provide all required arguments."
-#  echo "See -h for usage."
-#  exit 2
-#fi
+if [ "$NUMNODES" == "" ] || [ "$NODES" == "" ] || [ "$TIMEINTERVALS" == "" ] || [ "$LATENCYDELTA" == "" ]  ; then
+  echo "Incorrect number of args!"
+  echo "Please provide all required arguments."
+  echo "See -h for usage."
+  exit 2
+fi
 
 ## 5s
 TIMEINTERVAL=5
@@ -189,19 +194,18 @@ run_client () {
     for client_node in ${client_nodes_arr[@]} ; do
       get_ip_and_device $client_node
       interval_latency=$(ssh -T -o StrictHostKeyChecking=no $ip "./$client_name $CLIENTARGS" | grep "Round took " | awk '{print $NF}')
-      echo "Interval L3 Latency: $interval_latency"
+      echo "L3 Latency: $interval_latency"
     done
 }
 
 get_ping_latency () {
-#  read -a other_nodes_arr <<< "$OTHERNODES"
   for node in ${nodes_arr[@]} ; do
     get_ip_and_device $node
     nodeip=$ip
     for other_node in ${other_nodes_arr[@]} ; do
       get_ip_and_device $other_node
       ping_latency=$(ssh -T -o StrictHostKeyChecking=no $nodeip "ping -c 1 $ip" | awk 'FNR == 2 {print $7}' | cut -d = -f 2 | sed 's/$/ms/')
-      echo "$node Interval L1 Latency to $other_node : $ping_latency" 
+      echo "$node L1 Latency to $other_node : $ping_latency" 
     done
   done
 }
@@ -214,11 +218,21 @@ if [ $auto_client ] ; then
   done
 fi
 
+
+## Run a baseline
+if [ $auto_client ] ; then
+  echo "Baseline without additional network delay."
+  get_ping_latency
+  run_client
+  echo ""
+fi
+
 ## Starts at 1 for multiplication reasons
 ## And because conceptually the first delay is the first interval
 currentinterval=1
 ## Delay is interval * latencydelta
 delay=$(echo "$currentinterval * $LATENCYDELTA" | bc -l )
+echo "Interval: $currentinterval"
 echo "Current Additional Network Delay is: $delay ms"
 for i in $(seq 0 $(expr $NUMNODES - 1)) ; do
   get_ip_and_device ${nodes_arr[$i]}
@@ -248,7 +262,7 @@ do
 
   sleep $TIMEINTERVAL
 
-  if [ $currentinterval -ge $TIMERETURN ] ; then
+  if [[ -n $TIMERETURN ]] && [ $currentinterval -ge $TIMERETURN ] ; then
     ## Progressively backing off delay
     ## `RI - [ (RI / (TI - RI)) * (CI - RI) ]` Should give a progressive decrease in delay between RI and TI and will end with a delay of 0
     delay=$(echo "$LATENCYDELTA * ($TIMERETURN - (($TIMERETURN / ($TIMEINTERVALS - $TIMERETURN)) * ($currentinterval - $TIMERETURN)))" | bc -l )
@@ -256,6 +270,7 @@ do
     delay=$(echo "$currentinterval * $LATENCYDELTA" | bc -l )
   fi
 
+  echo "Interval: $currentinterval"
   echo "Current Additional Network Delay is: $delay ms"
   for i in $(seq 0 $(expr $NUMNODES - 1)) ; do
     get_ip_and_device ${nodes_arr[$i]}

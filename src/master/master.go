@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/efficient/epaxos/src/genericsmrproto"
+	"github.com/efficient/epaxos/src/dlog"
 	"log"
 	"github.com/efficient/epaxos/src/masterproto"
 	"net"
@@ -105,7 +106,7 @@ func (master *Master) run() {
 
       select {
       case <-pingChannel:
-        log.Printf("Ping worked")
+        dlog.Printf("Ping worked")
 				master.alive[i] = true
       case <- time.After(time.Duration(*timeout)*time.Second):
         log.Printf("Timeout")
@@ -116,7 +117,7 @@ func (master *Master) run() {
       }
 		}
 		if !new_leader {
-      log.Printf("continuing")
+      dlog.Printf("continuing")
 			continue
 		}
     log.Printf("Choosing new leader")
