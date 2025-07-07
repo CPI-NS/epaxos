@@ -18,8 +18,8 @@ const CHAN_BUFFER_SIZE = 200000000
 const TRUE = uint8(1)
 const FALSE = uint8(0)
 
-var oneRoundLatencyStart time.Time
-var oneRoundLatencyEnd   time.Time
+var oneRoundLatencyStart int64 = 0
+var oneRoundLatencyEnd   int64 = 0
 
 //const MAX_BATCH = 5000
 const MAX_BATCH = 1
@@ -173,12 +173,12 @@ func (r *Replica) clock() {
 var connChan chan int
 
 func resetLatencyTimersIfNewClientConnects() {
-  var zeroTime time.Time
+  //var zeroTime time.Time
   for {
     select {
     case <-connChan:
-      oneRoundLatencyStart = zeroTime
-      oneRoundLatencyEnd   = zeroTime
+      oneRoundLatencyStart = 0
+      oneRoundLatencyEnd   = 0
     }
   }
 }
@@ -263,11 +263,12 @@ func (r *Replica) run() {
 
 		case acceptReplyS := <-r.acceptReplyChan:
       //TODO: End L2 timer here.
-      if oneRoundLatencyEnd.IsZero() {
-        oneRoundLatencyEnd = time.Now()
-        oneRoundLatency := oneRoundLatencyEnd.Sub(oneRoundLatencyStart)
+      if oneRoundLatencyEnd == 0 {
+        oneRoundLatencyEnd = time.Now().UnixNano()
+        //oneRoundLatency := oneRoundLatencyEnd.Sub(oneRoundLatencyStart)
+        oneRoundLatency := float64(oneRoundLatencyEnd - oneRoundLatencyStart) / 1e6
 
-        fmt.Println("L2 Latency: ", oneRoundLatency )
+        fmt.Printf("L2 Latency: %v ms\n", oneRoundLatency)
       }
 
 			acceptReply := acceptReplyS.(*paxosproto.AcceptReply)
@@ -356,8 +357,8 @@ func (r *Replica) bcastAccept(instance int32, ballot int32, command []state.Comm
 		}
 		sent++
 
-    if oneRoundLatencyStart.IsZero() {
-      oneRoundLatencyStart = time.Now()
+    if oneRoundLatencyStart == 0 {
+      oneRoundLatencyStart = time.Now().UnixNano()
     }
 		r.SendMsg(q, r.acceptRPC, args)
 	}

@@ -109,8 +109,10 @@ func (master *Master) run() {
         dlog.Printf("Ping worked")
 				master.alive[i] = true
       case <- time.After(time.Duration(*timeout)*time.Second):
-        log.Printf("Timeout")
-        new_leader = checkLeader(i, master)
+        if master.leader[i] == true {
+          log.Printf("Timeout")
+          new_leader = checkLeader(i, master)
+        }
       case <- errorChannel:
         log.Printf("Error from call")
         new_leader = checkLeader(i, master)
