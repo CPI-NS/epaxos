@@ -297,7 +297,7 @@ func (r *Replica) clientListener(conn net.Conn) {
 
    // fmt.Println("Before Read Byte from reader")
 		if msgType, err = reader.ReadByte(); err != nil {
-      fmt.Println("Breaking because err != nil")
+      //fmt.Println("Breaking because err != nil")
 			break
 		}
 

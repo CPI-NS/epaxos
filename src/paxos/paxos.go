@@ -20,6 +20,7 @@ const FALSE = uint8(0)
 
 var oneRoundLatencyStart int64 = 0
 var oneRoundLatencyEnd   int64 = 0
+var oneRoundInstance     int32 = 0
 
 //const MAX_BATCH = 5000
 const MAX_BATCH = 1
@@ -179,6 +180,7 @@ func resetLatencyTimersIfNewClientConnects() {
     case <-connChan:
       oneRoundLatencyStart = 0
       oneRoundLatencyEnd   = 0
+      oneRoundInstance     = 0
     }
   }
 }
@@ -262,16 +264,13 @@ func (r *Replica) run() {
 			break
 
 		case acceptReplyS := <-r.acceptReplyChan:
-      //TODO: End L2 timer here.
-      if oneRoundLatencyEnd == 0 {
+			acceptReply := acceptReplyS.(*paxosproto.AcceptReply)
+      if oneRoundLatencyEnd == 0  && oneRoundInstance == acceptReply.Instance {
         oneRoundLatencyEnd = time.Now().UnixNano()
-        //oneRoundLatency := oneRoundLatencyEnd.Sub(oneRoundLatencyStart)
         oneRoundLatency := float64(oneRoundLatencyEnd - oneRoundLatencyStart) / 1e6
 
-        fmt.Printf("L2 Latency: %v ms\n", oneRoundLatency)
+        fmt.Printf("Instance %v L2 Latency: %v ms\n", acceptReply.Instance, oneRoundLatency)
       }
-
-			acceptReply := acceptReplyS.(*paxosproto.AcceptReply)
 			//got an Accept reply
 			dlog.Printf("Received AcceptReply for instance %d\n", acceptReply.Instance)
 			r.handleAcceptReply(acceptReply)
@@ -325,9 +324,8 @@ func (r *Replica) bcastPrepare(instance int32, ballot int32, toInfinity bool) {
 
 var pa paxosproto.Accept
 
-// TODO: Start L2 timer here
 func (r *Replica) bcastAccept(instance int32, ballot int32, command []state.Command) {
-  //fmt.Println("MULTIPAXOS ACCEPT LOG id: ", instance )
+ // fmt.Println("MULTIPAXOS ACCEPT LOG id: ", instance )
   dlog.Println("Sending bcastAccept for instance", instance)
 	defer func() {
 		if err := recover(); err != nil {
@@ -347,6 +345,10 @@ func (r *Replica) bcastAccept(instance int32, ballot int32, command []state.Comm
 	}
 	q := r.Id
 
+  if oneRoundLatencyStart == 0 {
+    oneRoundLatencyStart = time.Now().UnixNano()
+    oneRoundInstance = instance
+  }
 	for sent := 0; sent < n; {
 		q = (q + 1) % int32(r.N)
 		if q == r.Id {
@@ -357,9 +359,6 @@ func (r *Replica) bcastAccept(instance int32, ballot int32, command []state.Comm
 		}
 		sent++
 
-    if oneRoundLatencyStart == 0 {
-      oneRoundLatencyStart = time.Now().UnixNano()
-    }
 		r.SendMsg(q, r.acceptRPC, args)
 	}
 }
