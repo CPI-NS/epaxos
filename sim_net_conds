@@ -126,7 +126,7 @@ for i in "$@"; do
         -d=*|--enable_des=*)
           ENABLEDES="${i#*=}"
           shift
-        ;;
+          ;;
         -h*|--help*)
           display_help
           exit 1
@@ -206,12 +206,10 @@ run_client () {
     res_file="$expid"_results/"$expid"_"$currentinterval".dat
     for client_node in ${client_nodes_arr[@]} ; do
       get_ip_and_device $client_node
-      if [[ "$ENABLEDES" == "true" ]]; then
-        node_num=${client_node//[!0-9]/}
-        des_num=$((node_num - 1))
-        CLIENTARGS="$CLIENTARGS -des=$des_num"
-      else
-        CLIENTARGS="$CLIENTARGS"
+      if [[ "$ENABLEDES" == "true" || -z "$ENABLEDES" ]]; then
+      node_num=${client_node//[!0-9]/}
+      des_num=$((node_num - 1))
+      CLIENTARGS="$CLIENTARGS -des=$des_num"
       fi
       #interval_latency=$(ssh -T -o StrictHostKeyChecking=no $ip "./$client_name $CLIENTARGS" | grep "Round took " | awk '{print $NF}')
       client_output=$(ssh -T -o StrictHostKeyChecking=no $ip "./$client_name $CLIENTARGS" | grep 'Latency' | awk '{print $2}' \
