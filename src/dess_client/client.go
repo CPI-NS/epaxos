@@ -38,9 +38,6 @@ var N int
 //var startTime [*reqsNb]time.Time
 //var endTime [*reqsNb]time.Time
 
-var startTime = make([]time.Time, *reqsNb)
-var endTime = make([]time.Time, *reqsNb)
-
 var successful []int
 
 var rarray []int
@@ -79,6 +76,11 @@ func main() {
 	put := make([]bool, *reqsNb / *rounds + *eps)
 	perReplicaCount := make([]int, N)
 	test := make([]int, *reqsNb / *rounds + *eps)
+	
+	// Initialize startTime and endTime for latency measurement
+	startTime := make([]time.Time, *reqsNb)
+	endTime := make([]time.Time, *reqsNb)
+	
 	for i := 0; i < len(rarray); i++ {
 		r := rand.Intn(N)
 		if *designatedR >= 0 {
