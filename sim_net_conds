@@ -204,20 +204,12 @@ get_ip_and_device () {
 
 run_client () {
     res_file="$expid"_results/"$expid"_"$currentinterval".dat
+    replicaId=0
     for client_node in ${client_nodes_arr[@]} ; do
       get_ip_and_device $client_node
-      if [[ "$ENABLEDES" == "true" || -z "$ENABLEDES" ]]; then
-      node_num=${client_node//[!0-9]/}
-      des_num=$((node_num - 1))
-      CLIENTARGS="$CLIENTARGS -des=$des_num"
-      fi
-      #interval_latency=$(ssh -T -o StrictHostKeyChecking=no $ip "./$client_name $CLIENTARGS" | grep "Round took " | awk '{print $NF}')
-      client_output=$(ssh -T -o StrictHostKeyChecking=no $ip "./$client_name $CLIENTARGS" | grep 'Latency' | awk '{print $2}' \
+      client_output=$(ssh -T -o StrictHostKeyChecking=no $ip "export REPLICAID=$replicaId ; ./$client_name $CLIENTARGS" | grep 'Latency' | awk '{print $2}' \
         >> "$expid"_results/"$expid"_"$currentinterval".dat )
-    #  median_latency=$(echo "$client_output" | awk 'FNR == 1 {print $2}')
-    #  tail_latency=$(echo "$client_output" | awk 'FNR == 2 {print $2}')
-    #  echo "L3 Median Latency: $median_latency"
-    #  echo "L3 P99 Latency: $tail_latency"
+      ((replicaId++))
     done
     sort -n -o "$res_file" "$res_file"
     n=$(wc -l "$res_file" | awk '{print $1}')

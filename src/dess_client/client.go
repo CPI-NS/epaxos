@@ -14,6 +14,8 @@ import (
 	"runtime"
 	"github.com/efficient/epaxos/src/state"
 	"time"
+  "os"
+  "strconv"
 )
 
 var masterAddr *string = flag.String("maddr", "", "Master address. Defaults to localhost")
@@ -64,6 +66,8 @@ func main() {
 		log.Fatalf("Error making the GetReplicaList RPC")
 	}
 
+  replicaId, _ := strconv.Atoi(os.Getenv("REPLICAID"))
+
 	N = len(rlReply.ReplicaList)
 	servers := make([]net.Conn, N)
 	readers := make([]*bufio.Reader, N)
@@ -76,8 +80,10 @@ func main() {
 	test := make([]int, *reqsNb / *rounds + *eps)
 	for i := 0; i < len(rarray); i++ {
 		r := rand.Intn(N)
-		if *designatedR >= 0 {
-			r = *designatedR
+		//if *designatedR >= 0 {
+		if replicaId >= 0 {
+      //r = *designatedR
+      r = replicaId
 		}
 		rarray[i] = r
 		if i < *reqsNb / *rounds {
@@ -174,6 +180,7 @@ func main() {
 			//args.Timestamp = time.Now().UnixNano()
 			if !*fast {
 				if *noLeader {
+          fmt.Println("Writing to replica ", rarray[i])
 					leader = rarray[i]
 				}
 				writers[leader].WriteByte(genericsmrproto.PROPOSE)
