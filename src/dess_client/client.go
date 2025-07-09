@@ -14,8 +14,6 @@ import (
 	"runtime"
 	"github.com/efficient/epaxos/src/state"
 	"time"
-  "slices"
-  "math"
 )
 
 var masterAddr *string = flag.String("maddr", "", "Master address. Defaults to localhost")
@@ -35,8 +33,8 @@ var designatedR = flag.Int("des", -1, "Designated replica to send requests to. D
 
 var N int
 
-var startTime []time.Time
-var endTime []time.Time
+var startTimeUnix = make([]int64, *reqsNb)
+var endTimeUnix = make([]int64, *reqsNb)
 
 var successful []int
 
@@ -76,11 +74,6 @@ func main() {
 	put := make([]bool, *reqsNb / *rounds + *eps)
 	perReplicaCount := make([]int, N)
 	test := make([]int, *reqsNb / *rounds + *eps)
-	
-	// Initialize startTime and endTime for latency measurement
-	startTime = make([]time.Time, *reqsNb)
-	endTime = make([]time.Time, *reqsNb)
-	
 	for i := 0; i < len(rarray); i++ {
 		r := rand.Intn(N)
 		if *designatedR >= 0 {
@@ -177,7 +170,7 @@ func main() {
 			args.Command.V = state.Value(i)
 
       /* Start time for latency */
-      startTime[id] = time.Now()
+      startTimeUnix[id] = time.Now().UnixNano()
 			//args.Timestamp = time.Now().UnixNano()
 			if !*fast {
 				if *noLeader {
@@ -251,23 +244,13 @@ func main() {
 
 	fmt.Printf("Successful: %d\n", s)
 
-  var latSlice = make([]time.Duration, *reqsNb)
-  for i := 0; i < len(startTime); i++ {
-    latSlice[i] = endTime[i].Sub(startTime[i])
+
+  var unixLatSlice = make([]float64, *reqsNb)
+  for i:= 0; i < len(startTimeUnix); i++ {
+    unixLatSlice[i] = float64(endTimeUnix[i] - startTimeUnix[i]) / 1e6
+    fmt.Println("Latency ", unixLatSlice[i])
   }
 
-  slices.SortFunc(latSlice, func(a, b time.Duration) int { 
-    if a < b {
-      return -1
-    } else if a > b {
-      return 1
-    } else {
-      return 0
-    }
-  })
-  
-  fmt.Printf("Median %v\n", latSlice[*reqsNb/2])
-  fmt.Printf("P99 %v\n", latSlice[int(math.Ceil(0.99 * float64(len(latSlice)))) -1])
 
 	for _, client := range servers {
 		if client != nil {
@@ -288,7 +271,7 @@ func waitReplies(readers []*bufio.Reader, leader int, n int, done chan bool) {
 			e = true
 			continue
 		}
-    endTime[reply.CommandId] = time.Now()
+    endTimeUnix[reply.CommandId] = time.Now().UnixNano()
 		if *check {
 			if rsp[reply.CommandId] {
 				fmt.Println("Duplicate reply", reply.CommandId)
