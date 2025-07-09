@@ -35,8 +35,8 @@ var designatedR = flag.Int("des", -1, "Designated replica to send requests to. D
 
 var N int
 
-//var startTime [*reqsNb]time.Time
-//var endTime [*reqsNb]time.Time
+var startTime []time.Time
+var endTime []time.Time
 
 var successful []int
 
@@ -78,8 +78,8 @@ func main() {
 	test := make([]int, *reqsNb / *rounds + *eps)
 	
 	// Initialize startTime and endTime for latency measurement
-	startTime := make([]time.Time, *reqsNb)
-	endTime := make([]time.Time, *reqsNb)
+	startTime = make([]time.Time, *reqsNb)
+	endTime = make([]time.Time, *reqsNb)
 	
 	for i := 0; i < len(rarray); i++ {
 		r := rand.Intn(N)
