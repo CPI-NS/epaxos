@@ -31,6 +31,7 @@ var eps *int = flag.Int("eps", 0, "Send eps more messages per round than the cli
 var conflicts *int = flag.Int("c", -1, "Percentage of conflicts. Defaults to 0%")
 var s = flag.Float64("s", 2, "Zipfian s parameter")
 var v = flag.Float64("v", 1, "Zipfian v parameter")
+var designatedR = flag.Int("des", -1, "Designated replica to send requests to. Defaults to -1 (random).")
 
 var N int
 
@@ -80,6 +81,9 @@ func main() {
 	test := make([]int, *reqsNb / *rounds + *eps)
 	for i := 0; i < len(rarray); i++ {
 		r := rand.Intn(N)
+		if *designatedR >= 0 {
+			r = *designatedR
+		}
 		rarray[i] = r
 		if i < *reqsNb / *rounds {
 			perReplicaCount[r]++
